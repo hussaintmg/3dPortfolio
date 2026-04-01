@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { Lock, ArrowRight, ShieldCheck, Loader2, KeyRound } from "lucide-react";
 import { gsap } from "gsap";
 import { notify } from "@/lib/notify";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const [formData, setFormData] = useState({
     password: "",
     confirmPassword: "",
@@ -183,5 +183,13 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-accent" size={48} /></div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

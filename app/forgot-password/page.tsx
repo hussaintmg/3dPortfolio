@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { Mail, ArrowRight, Loader2, ArrowLeft, KeyRound } from "lucide-react";
 import { gsap } from "gsap";
@@ -8,7 +8,7 @@ import { notify } from "@/lib/notify";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [code, setCode] = useState("");
@@ -375,5 +375,13 @@ export default function ForgotPasswordPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-accent" size={48} /></div>}>
+      <ForgotPasswordContent />
+    </Suspense>
   );
 }

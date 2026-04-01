@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, use } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getSocket } from "@/lib/socket-client";
@@ -29,7 +29,7 @@ interface Message {
   packageContext?: string;
 }
 
-export default function ChatPage() {
+function ChatContent() {
   const searchParams = useSearchParams();
   const pkgId = searchParams?.get("packageId");
   const pkgName = searchParams?.get("packageName");
@@ -298,5 +298,19 @@ export default function ChatPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-[80vh] items-center justify-center">
+          <Loader2 className="animate-spin text-accent" size={48} />
+        </div>
+      }
+    >
+      <ChatContent />
+    </Suspense>
   );
 }
