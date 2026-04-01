@@ -16,8 +16,9 @@ import { gsap } from "gsap";
 import { notify } from "@/lib/notify";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import { Suspense } from "react";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
@@ -145,7 +146,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-5 bg-white cursor-pointer text-background hover:bg-accent hover:text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full mt-5 bg-white text-background hover:bg-accent hover:text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -171,5 +172,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Loader2 className="animate-spin text-accent" size={48} />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

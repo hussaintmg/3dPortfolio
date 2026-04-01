@@ -176,3 +176,159 @@ export async function forgotCodeEmail(email: string, code: string) {
     return { success: false, error };
   }
 }
+
+export async function adminApprovedEmail(email: string, username: string) {
+  const mailOptions = {
+    from: `"${webData.websiteName} Administration" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: "Application Approved - Welcome to the Team!",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Application Approved - ${webData.websiteName}</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 40px 0;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="600px" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); overflow: hidden;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
+                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">Welcome, ${username}!</h1>
+                    <p style="margin: 10px 0 0; color: #d1fae5; font-size: 14px;">Your Administrator application has been approved.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <h2 style="margin: 0 0 10px 0; color: #1a1a2e; font-size: 24px; font-weight: 600;">Account Activated</h2>
+                    <p style="margin: 0 0 20px 0; color: #666666; font-size: 16px;">We are pleased to inform you that your application for a position on our administrative team has been accepted. Your dashboard access is now fully authorized.</p>
+                    
+                    <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0; border-radius: 8px;">
+                      <p style="margin: 0; color: #065f46; font-size: 14px;"><strong>Next Steps:</strong> You can now log in to the Genesis Portal using your registered email and password to access the administrative dashboard.</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 40px 0;">
+                      <a href="${process.env.NEXT_PUBLIC_BASE_URL}/login" style="display: inline-block; background-color: #10b981; color: #ffffff; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Access Portal</a>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f8f9fa; padding: 30px; text-align: center;">
+                    <p style="margin: 0 0 10px 0; color: #666666; font-size: 12px;">© ${new Date().getFullYear()} ${webData.websiteName}. All rights reserved.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `,
+  };
+  return await transporter.sendMail(mailOptions);
+}
+
+export async function adminRejectedEmail(email: string, username: string) {
+  const mailOptions = {
+    from: `"${webData.websiteName} Administration" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: "Application Update - ${webData.websiteName}",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Application Update - ${webData.websiteName}</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif; background-color: #f5f5f5;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 40px 0;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="600px" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); overflow: hidden;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 40px 30px; text-align: center;">
+                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">Application Update</h1>
+                    <p style="margin: 10px 0 0; color: #fee2e2; font-size: 14px;">Administrator position update for ${username}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <h2 style="margin: 0 0 10px 0; color: #1a1a2e; font-size: 24px; font-weight: 600;">Application Status</h2>
+                    <p style="margin: 0 0 20px 0; color: #666666; font-size: 16px;">Thank you for your interest in joining our administrative team. After careful consideration, we regret to inform you that we are unable to approve your application at this time.</p>
+                    <p style="margin: 0; color: #666666; font-size: 16px;">If you believe this decision was made in error or have additional information to provide, please do not hesitate to contact our support team.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f8f9fa; padding: 30px; text-align: center;">
+                    <p style="margin: 0 0 10px 0; color: #666666; font-size: 12px;">© ${new Date().getFullYear()} ${webData.websiteName}. All rights reserved.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `,
+  };
+  return await transporter.sendMail(mailOptions);
+}
+
+export async function notifyOwnerNewAdmin(ownerEmail: string, adminDetails: { username: string, email: string }) {
+  const mailOptions = {
+    from: `"${webData.websiteName} System" <${process.env.EMAIL_USER}>`,
+    to: ownerEmail,
+    subject: `New Admin Account Created: ${adminDetails.username}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Admin Application - ${webData.websiteName}</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif; background-color: #f5f5f5;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 40px 0;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="600px" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); overflow: hidden;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); padding: 40px 30px; text-align: center;">
+                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Admin Application Received</h1>
+                    <p style="margin: 10px 0 0; color: #E0E7FF; font-size: 14px;">A new account with role "admin" is awaiting review.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <p style="margin: 0 0 20px 0; color: #1a1a2e; font-size: 16px;">Hello Owner,</p>
+                    <p style="margin: 0 0 20px 0; color: #666666; font-size: 16px;">A new administrator registration has been detected. The applicant's details:</p>
+                    
+                    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                      <p style="margin: 0 0 10px 0; color: #475569; font-size: 14px;"><strong>Username:</strong> ${adminDetails.username}</p>
+                      <p style="margin: 0; color: #475569; font-size: 14px;"><strong>Email:</strong> ${adminDetails.email}</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 40px 0;">
+                      <a href="${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/pending-admins" style="display: inline-block; background-color: #6366F1; color: #ffffff; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Review Application</a>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f8f9fa; padding: 30px; text-align: center;">
+                    <p style="margin: 0 0 10px 0; color: #666666; font-size: 12px;">© ${new Date().getFullYear()} ${webData.websiteName}. All rights reserved.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `,
+  };
+  return await transporter.sendMail(mailOptions);
+}

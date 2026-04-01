@@ -110,7 +110,7 @@ export default function Navbar() {
             <div className="md:hidden">
               <button
                 onClick={() => setIsOpen(true)}
-                className="text-white cursor-pointer p-2 hover:bg-white/10 rounded-xl transition-colors border border-transparent hover:border-white/10"
+                className="text-white p-2 hover:bg-white/10 rounded-xl transition-colors border border-transparent hover:border-white/10"
               >
                 <Menu size={24} />
               </button>
@@ -146,7 +146,7 @@ export default function Navbar() {
                   </Link>
                   <button
                     onClick={logout}
-                    className="text-gray-500 cursor-pointer hover:text-red-500 transition-colors bg-white/5 p-2.5 rounded-xl border border-white/5 hover:border-red-500/20"
+                    className="text-gray-500 hover:text-red-500 transition-colors bg-white/5 p-2.5 rounded-xl border border-white/5 hover:border-red-500/20"
                     title="Logout"
                   >
                     <LogOut size={16} />
@@ -238,7 +238,6 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
-
           </div>
           {!loading && (
             <div className="pt-2 absolute bottom-5">
@@ -263,7 +262,7 @@ export default function Navbar() {
                       logout();
                       setIsOpen(false);
                     }}
-                    className="group cursor-pointer relative inline-flex items-center gap-2 text-sm font-semibold 
+                    className="group relative inline-flex items-center gap-2 text-sm font-semibold 
                            tracking-wider uppercase text-red-500 hover:text-red-400 
                            transition-all duration-200 text-left"
                   >

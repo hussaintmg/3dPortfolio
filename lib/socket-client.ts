@@ -16,7 +16,7 @@ export function getSocket() {
     });
 
     socket.on("connect_error", (error) => {
-        console.error("Socket connection error. Initializing server first.");
+        console.warn("Socket disconnected or server not yet initialized. Initializing...");
         // Try to wake up the server if it's not initialized
         fetch("/api/socket").catch(() => {});
     });

@@ -20,7 +20,7 @@ import {
   UserSearch,
   UserCheck,
   UserRoundX,
-  Compass
+  Compass,
 } from "lucide-react";
 import {
   userDashboardLinks,
@@ -74,15 +74,15 @@ export default function Sidebar({
   const sidebarRef = useRef<HTMLElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  useEffect(()=>{
-    if(user?.role === "user"){
-      setSidebarLinks(userDashboardLinks)
-    }else if(user?.role === "admin"){
-      setSidebarLinks(adminDashboardLinks)
-    }else{
-      setSidebarLinks(ownerDashboardLinks)
+  useEffect(() => {
+    if (user?.role === "user") {
+      setSidebarLinks(userDashboardLinks);
+    } else if (user?.role === "admin") {
+      setSidebarLinks(adminDashboardLinks);
+    } else {
+      setSidebarLinks(ownerDashboardLinks);
     }
-  },[user])
+  }, [user]);
 
   useEffect(() => {
     if (isMobile && isOpen) {
@@ -161,6 +161,7 @@ export default function Sidebar({
 
       <aside
         ref={sidebarRef}
+        data-lenis-prevent
         className="fixed inset-y-0 left-0 bg-card border-r border-white/5 flex flex-col z-50 overflow-hidden shadow-2xl"
         style={{
           width: isMobile ? 280 : isOpen ? 280 : 80,
@@ -185,7 +186,10 @@ export default function Sidebar({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-scroll custom-scrollbar my-6">
+        <div
+          data-lenis-prevent
+          className="flex-1 min-h-0 overflow-y-auto custom-scrollbar py-6"
+        >
           <nav className="flex flex-col gap-1.5 px-4">
             {filteredLinks.map((link) => {
               const isDropdownOpen = openDropdowns[link.name] || false;
@@ -199,7 +203,7 @@ export default function Sidebar({
                   <div key={link.name} className="flex flex-col gap-1.5">
                     <button
                       onClick={() => toggleDropdown(link.name)}
-                      className={`flex cursor-pointer items-center gap-3.5 px-4 py-3 rounded-xl transition-all w-full group
+                      className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all w-full group
                         ${isActive ? "bg-[#6366F1]/10 text-[#6366F1] font-bold" : "text-gray-400 hover:bg-white/5 hover:text-white"}
                       `}
                     >
@@ -277,7 +281,7 @@ export default function Sidebar({
                 style={{ opacity: isOpen ? 1 : 0 }}
               >
                 <p className="text-sm font-bold text-white truncate tracking-tight">
-                  {user?.username || "Commander"}
+                  {user?.displayName || user?.username || "Commander"}
                 </p>
                 <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest leading-none mt-1">
                   {user?.role || "Operator"}

@@ -65,7 +65,7 @@ export default function RegisterPage() {
       }
     } catch (error: any) {
       console.log(error);
-      notify.error(error.response?.data?.message||"System Error", {
+      notify.error(error.response?.data?.message || "System Error", {
         description: error.response?.data?.desc || "Deployment failed.",
       });
     } finally {
@@ -221,7 +221,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full cursor-pointer bg-white text-background hover:bg-accent hover:text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-white text-background hover:bg-accent hover:text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

@@ -3,6 +3,7 @@ import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { webData } from "../constants/webData";
 import { AuthProvider } from "../context/AuthContext";
+import { OwnerProvider } from "../context/OwnerContext";
 import { NotificationProvider } from "../context/NotificationProvider";
 import { ToastProvider } from "../Components/toast/ToastProvider";
 import { ToastContainer } from "../Components/toast";
@@ -38,12 +39,14 @@ export default function RootLayout({
           <BackgroundOrbs />
           <NotificationProvider>
             <AuthProvider>
-              <ToastProvider>
-                <MainContent>
-                  {children}
-                </MainContent>
-                <ToastContainer />
-              </ToastProvider>
+              <OwnerProvider>
+                <ToastProvider>
+                  <MainContent>
+                    {children}
+                  </MainContent>
+                  <ToastContainer />
+                </ToastProvider>
+              </OwnerProvider>
             </AuthProvider>
           </NotificationProvider>
         </LenisProvider>

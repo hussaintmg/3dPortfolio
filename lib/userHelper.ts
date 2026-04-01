@@ -1,6 +1,7 @@
 import User from "@/models/User";
 import connectDB from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
+import { notifyOwnerNewAdmin } from "@/lib/email";
 
 export async function findUser(identifier: string) {
   await connectDB();
@@ -51,7 +52,24 @@ export async function createUser(userData: any) {
     displayName: userData.displayName,
   });
 
-  return await newUser.save();
+  const savedUser = await newUser.save();
+
+  // If new user is an admin, notify owner
+  if (role === "admin") {
+    try {
+      const owner = await User.findOne({ role: "owner" });
+      if (owner) {
+        await notifyOwnerNewAdmin(owner.email, {
+          username: savedUser.username,
+          email: savedUser.email
+        });
+      }
+    } catch (error) {
+      console.error("Failed to notify owner:", error);
+    }
+  }
+
+  return savedUser;
 }
 
 export async function getUserById(id: string) {

@@ -13,6 +13,9 @@ import {
   Filter,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { notify } from "@/lib/notify";
+import { Suspense } from "react";
 import StackedCardsHero from "@/Components/StackedCardsHero";
 import ProjectsStack from "@/Components/ProjectsStack";
 import Scene3DBackground from "@/Components/3D/Scene3DBackground";
@@ -85,11 +88,24 @@ const skills = [
   },
 ];
 
-export default function HomePage() {
+function HomeContent() {
   const containerRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const horizontalRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const errorMsg = searchParams?.get("error");
+
+  useEffect(() => {
+    if (errorMsg) {
+      notify.error("Access Denied", {
+        description: errorMsg,
+      });
+      // Clear the error param from URL without refreshing
+      router.replace("/");
+    }
+  }, [errorMsg, router]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -450,5 +466,19 @@ export default function HomePage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Terminal className="animate-pulse text-indigo-500" size={48} />
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }

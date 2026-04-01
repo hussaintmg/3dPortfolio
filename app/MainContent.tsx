@@ -14,13 +14,17 @@ export default function MainContent({ children }: { children: React.ReactNode })
   // Register the global notify system
   useNotify();
 
+  const isAuth = pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/forgot-password") || pathname.startsWith("/reset-password");
+  const isDashboardPage = pathname.startsWith("/dashboard");
+  const showNavAndFooter = !isDashboardPage && !isAuth;
+
   return (
     <>
-      <Navbar />
+      {showNavAndFooter && <Navbar />}
       <main className="flex-1 overflow-x-hidden relative">
         {children}
       </main>
-      <Footer />
+      {showNavAndFooter && <Footer />}
     </>
   );
 }

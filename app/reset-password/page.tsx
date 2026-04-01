@@ -69,7 +69,7 @@ function ResetPasswordContent() {
       }
       notify.success(
         res.data.message ||
-        "Access key updated. Re-initializing identity Verification...",
+          "Access key updated. Re-initializing identity Verification...",
         {
           description: res.data.desc || "Please login again",
         },
@@ -161,7 +161,7 @@ function ResetPasswordContent() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full cursor-pointer bg-white text-background hover:bg-accent hover:text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-white text-background hover:bg-accent hover:text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -188,7 +188,13 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-accent" size={48} /></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Loader2 className="animate-spin text-accent" size={48} />
+        </div>
+      }
+    >
       <ResetPasswordContent />
     </Suspense>
   );

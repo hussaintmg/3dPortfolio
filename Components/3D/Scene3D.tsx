@@ -1,8 +1,13 @@
 "use client";
 
-import { useRef, useMemo, forwardRef, useImperativeHandle } from "react";
+import { useRef, useMemo, forwardRef, useImperativeHandle, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { MeshDistortMaterial, Float, Environment, Sparkles } from "@react-three/drei";
+import {
+  MeshDistortMaterial,
+  Float,
+  Environment,
+  Sparkles,
+} from "@react-three/drei";
 import * as THREE from "three";
 
 // ─── Public handle type so Scene3DBackground can call triggerBurst() ──────────
@@ -22,6 +27,17 @@ function FloatingGeometry({
   burstStartMs: React.MutableRefObject<number>;
   positionX: React.MutableRefObject<number>;
 }) {
+  // Fixed values instead of Leva controls
+  const radius = 0.9;
+  const detail = 1;
+  const distort = 0.15;
+  const speed = 1.5;
+  const color = "#3761d4";
+  const metalness = 0.9;
+  const roughness = 0.1;
+  const sparklesCount = 100;
+  const sparklesColor = "#8aa8ff";
+
   const meshRef = useRef<THREE.Mesh>(null);
   const wireRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
@@ -88,33 +104,33 @@ function FloatingGeometry({
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
       {/* Floating moving particles around the sphere */}
-      <Sparkles 
-        count={100} 
-        scale={4}       // Limits them to a 4-unit box around the sphere
-        size={2}        // Particle size
-        speed={0.3}     // Speed of random floating motion
+      <Sparkles
+        count={sparklesCount}
+        scale={4} // Limits them to a 4-unit box around the sphere
+        size={2} // Particle size
+        speed={0.3} // Speed of random floating motion
         opacity={0.6}
-        color="#8aa8ff" 
-        noise={0.1}     // Amount of random wiggle
+        color={sparklesColor}
+        noise={0.1} // Amount of random wiggle
       />
 
       {/* Main icosahedron */}
       <Float speed={1.2} rotationIntensity={0.3} floatIntensity={0.4}>
         <mesh ref={meshRef}>
-          <icosahedronGeometry args={[1.1, 1]} />
+          <icosahedronGeometry args={[radius, detail]} />
           <MeshDistortMaterial
-            color="#3761d4"
+            color={color}
             wireframe={false}
-            distort={0.15}
-            speed={1.5}
-            metalness={0.9}
-            roughness={0.1}
+            distort={distort}
+            speed={speed}
+            metalness={metalness}
+            roughness={roughness}
             envMapIntensity={1}
           />
         </mesh>
         {/* Wireframe overlay */}
         <mesh ref={wireRef}>
-          <icosahedronGeometry args={[1.13, 2]} />
+          <icosahedronGeometry args={[radius + 0.03, detail + 1]} />
           <meshBasicMaterial
             color="#43b5d5"
             wireframe
@@ -144,6 +160,20 @@ const Scene3D = forwardRef<Scene3DHandle>((_, ref) => {
   const burstActive = useRef(false);
   const burstStartMs = useRef(2);
   const positionX = useRef(2);
+  const currentSide = useRef<"left" | "right">("right");
+
+  // Helper for responsive X positions based on camera at X=1.2
+  const getResponsivePosX = (dir: "left" | "right") => {
+    if (typeof window === "undefined") return dir === "left" ? -2 : 2;
+    const w = window.innerWidth;
+    if (w <= 480) {
+      // Mobile: camera is at 1.2
+      return dir === "left" ? 1.6 : 0.7; // Swapped to match user request: moveToLeft -> right side
+    } else if (w <= 1024) {
+      return dir === "left" ? -0.5 : 2.2;
+    }
+    return dir === "left" ? -2 : 2;
+  };
 
   useImperativeHandle(ref, () => ({
     triggerBurst: () => {
@@ -151,12 +181,25 @@ const Scene3D = forwardRef<Scene3DHandle>((_, ref) => {
       burstStartMs.current = Date.now();
     },
     moveToLeft: () => {
-      positionX.current = -2; // Move to left side
+      currentSide.current = "left";
+      positionX.current = getResponsivePosX("left");
     },
     moveToRight: () => {
-      positionX.current = 2; // Move to right side
+      currentSide.current = "right";
+      positionX.current = getResponsivePosX("right");
     },
   }));
+
+  // Update position on mount and whenever window resizes
+  useEffect(() => {
+    const updatePos = () => {
+      positionX.current = getResponsivePosX(currentSide.current);
+    };
+
+    updatePos(); // Initial set
+    window.addEventListener("resize", updatePos);
+    return () => window.removeEventListener("resize", updatePos);
+  }, []);
 
   return (
     // Canvas fills whatever container the parent gives it

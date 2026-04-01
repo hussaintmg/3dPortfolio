@@ -89,6 +89,8 @@ export default function ProjectsStack() {
               pin: pinRef.current,
               scrub: 1,
               anticipatePin: 1,
+              invalidateOnRefresh: true,
+              fastScrollEnd: true,
             },
           });
 
@@ -150,6 +152,15 @@ export default function ProjectsStack() {
     return () => ctx.revert();
   }, []);
 
+  // Force ScrollTrigger refresh on window resize for layout stability
+  useEffect(() => {
+    const handleResize = () => {
+      ScrollTrigger.refresh();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
     <section
       id="projects-stack"
@@ -181,8 +192,8 @@ export default function ProjectsStack() {
           <div className="hidden lg:block w-full h-full pointer-events-none"></div>
 
           {/* Right Column - Contains the overlapping cards */}
-          <div className="w-full h-full flex justify-center lg:justify-end items-center pb-12 overflow-visible">
-            <div className="relative w-full max-w-[50%] aspect-3/4 perspective-[1000px] lg:mr-8 xl:mr-16">
+          <div className="w-full h-full flex justify-center lg:justify-end items-center pb-8 lg:pb-12 overflow-visible">
+            <div className="relative h-[45vh] min-[400px]:h-[50vh] sm:h-[60vh] lg:h-[65vh] aspect-3/4 perspective-[1000px] lg:mr-8 xl:mr-16">
               {projects.map((proj, i) => (
                 <div
                   key={proj.id}

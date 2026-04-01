@@ -9,7 +9,9 @@ interface User {
   username: string;
   email: string;
   role: "user" | "admin" | "owner";
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "suspended";
+  displayName?: string;
+  profileImage?: string;
 }
 
 interface AuthContextType {

@@ -1,8 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Mail, MessageSquare, User, Calendar, Bell, ExternalLink, Inbox } from "lucide-react";
-import { getSocket } from "@/lib/socket-client";
+import {
+  MessageSquare,
+  Search,
+  Bell,
+  Filter,
+  Mail,
+  User,
+  Calendar,
+  ChevronRight,
+  ArrowRight,
+  Loader2,
+  Inbox,
+  ExternalLink,
+} from "lucide-react";
+import { gsap } from "gsap";
+import Link from "next/link";
+import { notify } from "@/lib/notify";
 
 interface Enquiry {
   _id: string;
@@ -12,11 +27,10 @@ interface Enquiry {
   createdAt: string;
 }
 
-export default function EnquiriesDashboard() {
+export default function EnquiriesPage() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newCount, setNewCount] = useState(0);
-  const [permission, setPermission] = useState("default");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchEnquiries = async () => {
     try {
@@ -24,9 +38,12 @@ export default function EnquiriesDashboard() {
       const data = await resp.json();
       if (data.success) {
         setEnquiries(data.enquiries);
+      } else {
+        notify.error("Failed to fetch enquiries");
       }
     } catch (err) {
       console.error("Fetch error:", err);
+      notify.error("Network error fetching enquiries");
     } finally {
       setLoading(false);
     }
@@ -34,179 +51,210 @@ export default function EnquiriesDashboard() {
 
   useEffect(() => {
     fetchEnquiries();
-    
-    // Request Notification permission
-    if ("Notification" in window) {
-      setPermission(Notification.permission);
-    }
-
-    // Wake up Socket Server
-    fetch("/api/socket").catch(() => {});
-
-    // Socket listeners
-    const socket = getSocket();
-    
-    socket.on("new_enquiry", (data: any) => {
-        setEnquiries((prev) => [data, ...prev]);
-        setNewCount((prev) => prev + 1);
-        
-        // Browser Push Notification
-        if (Notification.permission === "granted") {
-            new Notification("New Enquiry Received", {
-                body: `${data.name} just sent a message from your portfolio.`,
-                icon: "/favicon.ico"
-            });
-        }
-    });
-
-    return () => {
-        socket.off("new_enquiry");
-    };
   }, []);
 
-  const requestPermission = () => {
-    if ("Notification" in window) {
-      Notification.requestPermission().then((res) => {
-        setPermission(res);
-      });
+  useEffect(() => {
+    if (!loading) {
+      gsap.fromTo(
+        ".reveal-item",
+        { y: 20, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6, stagger: 0.05, ease: "power2.out" }
+      );
     }
-  };
+  }, [loading]);
 
-  if (loading) {
-    return (
-      <div className="flex h-[80vh] items-center justify-center p-4">
-        <Loader2 className="animate-spin text-accent" size={48} />
-      </div>
-    );
-  }
+  const filteredEnquiries = enquiries.filter(
+    (e) =>
+      e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.message.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="min-h-screen p-6 sm:p-10">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between mb-12">
-          <div className="space-y-2">
-            <h1 className="text-4xl lg:text-5xl font-black text-gray-900 tracking-tighter flex items-center gap-4">
-              <div className="size-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-accent border border-indigo-100">
-                  <Inbox size={26} />
-              </div>
-              Briefings
-              {newCount > 0 && (
-                <span className="ml-2 rounded-full bg-accent px-4 py-1.5 text-[10px] font-black text-white animate-bounce shadow-xl shadow-indigo-600/20 uppercase tracking-widest">
-                  {newCount} New
-                </span>
-              )}
+    <div className="min-h-screen bg-background flex flex-col">
+      <main className="flex-1 p-6 lg:p-12 overflow-y-auto custom-scrollbar">
+        {/* HEADER */}
+        <header className="reveal-item flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+          <div>
+            <h1 className="text-4xl font-black text-white tracking-tighter">
+              Enquiry <span className="italic text-accent">Vault.</span>
             </h1>
-            <p className="text-gray-500 font-medium">Coordinate and manage inbound project transmissions.</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mt-2">
+              Strategic Inbounds // Total Nodes: {enquiries.length}
+            </p>
           </div>
 
           <div className="flex items-center gap-4">
-            {permission !== "granted" && (
-              <button
-                onClick={requestPermission}
-                className="flex items-center gap-2 rounded-2xl bg-gray-50 border border-gray-100 px-5 py-3 text-xs font-black text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-all uppercase tracking-widest"
-              >
-                <Bell size={16} />
-                Listen Path
-              </button>
-            )}
-            <button
-                onClick={() => { setEnquiries([]); fetchEnquiries(); setNewCount(0); }}
-                className="flex items-center gap-2 rounded-2xl bg-gray-900 px-6 py-3.5 text-xs font-black text-white hover:bg-black shadow-xl shadow-gray-900/10 transition-all active:scale-95 uppercase tracking-widest"
-            >
-                Synchronize
-            </button>
+            <div className="relative group flex-1 md:w-64">
+              <Search
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors"
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="Filter decrypts..."
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-xs font-bold text-white focus:outline-none focus:border-accent transition-all"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
+        </header>
 
-        {enquiries.length === 0 ? (
-          <div className="rounded-4xl border border-gray-100 bg-white p-24 text-center shadow-sm">
-             <Inbox className="mx-auto mb-6 text-gray-200" size={80} />
-             <p className="text-2xl text-gray-400 font-black tracking-tight">Deployment queue empty.</p>
-             <p className="text-sm text-gray-400 mt-2">No active communications detected in the pipeline.</p>
+        {loading ? (
+          <div className="h-[60vh] flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="animate-spin text-accent" size={48} />
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                Synchronizing Encrypted Data...
+              </p>
+            </div>
+          </div>
+        ) : filteredEnquiries.length === 0 ? (
+          <div className="h-[50vh] flex items-center justify-center border border-dashed border-white/10 rounded-[2.5rem] bg-white/1">
+            <div className="text-center space-y-4">
+              <Inbox className="size-12 text-gray-700 mx-auto" />
+              <div className="space-y-1">
+                <h3 className="text-xl font-black text-white tracking-tighter">
+                  No Signals Found.
+                </h3>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  Awaiting external transmissions.
+                </p>
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="space-y-8">
-            {/* Desktop Table */}
-            <div className="hidden overflow-hidden rounded-4xl border border-gray-100 bg-white shadow-sm lg:block">
-              <table className="w-full text-left">
-                <thead className="border-b border-gray-50 bg-gray-50/50">
-                  <tr>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Personnel Node</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Mission Parameters</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Temporal Data</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Operations</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {enquiries.map((e) => (
-                    <tr key={e._id} className="group hover:bg-indigo-50/30 transition-colors">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="shrink-0 size-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-500 border border-gray-100 group-hover:border-indigo-100 group-hover:text-accent transition-colors">
-                            <User size={18} />
-                          </div>
-                          <div>
-                            <div className="font-bold text-gray-900 text-sm">{e.name}</div>
-                            <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5 mt-0.5">
-                              <Mail size={12} className="opacity-70" />
-                              {e.email}
+          <>
+            {/* DESKTOP TABLE */}
+            <div className="hidden lg:block reveal-item bg-card border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-black/20">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-white/2">
+                      <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                        Signal Source
+                      </th>
+                      <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                        Decrypted Content
+                      </th>
+                      <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                        Timestamp
+                      </th>
+                      <th className="px-8 py-6 text-right text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {filteredEnquiries.map((enquiry) => (
+                      <tr
+                        key={enquiry._id}
+                        className="hover:bg-white/1 transition-colors group"
+                      >
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <div className="size-10 rounded-xl bg-background border border-white/10 flex items-center justify-center text-accent">
+                              <User size={18} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-black text-white uppercase tracking-tight">
+                                {enquiry.name}
+                              </p>
+                              <p className="text-[10px] font-medium text-gray-500 tracking-wider">
+                                {enquiry.email}
+                              </p>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 max-w-md">
-                        <div className="text-sm text-gray-500 font-medium line-clamp-2 leading-relaxed">{e.message}</div>
-                      </td>
-                      <td className="px-8 py-6 text-[11px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={14} className="opacity-50" />
-                          {new Date(e.createdAt).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <a href={`mailto:${e.email}`} className="text-[11px] font-black uppercase tracking-widest text-accent hover:underline underline-offset-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                          Initiate Reply
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="text-xs text-gray-400 font-medium line-clamp-1 max-w-sm">
+                            {enquiry.message}
+                          </p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                            {new Date(enquiry.createdAt).toLocaleString()}
+                          </p>
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                          <Link
+                            href={{
+                              pathname: "/dashboard/enquiries/send-email",
+                              query: {
+                                id: enquiry._id,
+                                name: enquiry.name,
+                                email: enquiry.email,
+                                message: enquiry.message
+                              }
+                            }}
+                            className="inline-flex items-center gap-2 bg-accent hover:bg-white text-background hover:text-background px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                          >
+                            <Mail size={14} /> Sent Email
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Mobile Card List */}
-            <div className="grid grid-cols-1 gap-6 lg:hidden">
-              {enquiries.map((e) => (
-                <div key={e._id} className="rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
-                  <div className="flex items-start justify-between">
-                    <div className="flex gap-4">
-                        <div className="shrink-0 size-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-500 border border-gray-100">
-                            <User size={20} />
-                        </div>
-                        <div>
-                            <h3 className="font-black text-gray-900 tracking-tight">{e.name}</h3>
-                            <p className="text-xs font-medium text-gray-400 mt-0.5">{e.email}</p>
-                        </div>
+            {/* MOBILE CARDS */}
+            <div className="lg:hidden grid grid-cols-1 gap-4">
+              {filteredEnquiries.map((enquiry) => (
+                <div
+                  key={enquiry._id}
+                  className="reveal-item bg-card border border-white/5 rounded-3xl p-6 shadow-xl"
+                >
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-xl bg-background border border-white/10 flex items-center justify-center text-accent">
+                        <User size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-white uppercase tracking-tight">
+                          {enquiry.name}
+                        </h3>
+                        <p className="text-[10px] font-medium text-gray-500 font-mono">
+                          {enquiry.email}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-6 rounded-2xl bg-gray-50 p-6 border border-gray-100">
-                    <p className="text-sm text-gray-500 font-medium leading-relaxed italic">"{e.message}"</p>
+
+                  <div className="bg-background/50 rounded-2xl p-4 mb-6 border border-white/5">
+                    <p className="text-xs text-gray-400 font-medium leading-relaxed italic">
+                      "{enquiry.message}"
+                    </p>
                   </div>
-                  <div className="mt-6 flex items-center justify-between">
-                      <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
-                           {new Date(e.createdAt).toLocaleDateString()}
-                      </span>
-                      <a href={`mailto:${e.email}`} className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-accent">
-                        <ExternalLink size={14} />
-                        Link Response
-                      </a>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                      <Calendar size={12} />
+                      {new Date(enquiry.createdAt).toLocaleDateString()}
+                    </div>
+                    <Link
+                      href={{
+                        pathname: "/dashboard/enquiries/send-email",
+                        query: {
+                          id: enquiry._id,
+                          name: enquiry.name,
+                          email: enquiry.email,
+                          message: enquiry.message
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 bg-accent hover:bg-white text-background hover:text-background px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                    >
+                      <Mail size={12} /> Sent Email
+                    </Link>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </>
         )}
-      </div>
+      </main>
     </div>
   );
 }

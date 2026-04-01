@@ -64,9 +64,14 @@ function ForgotPasswordContent() {
         });
       }
     } catch (error: any) {
-      notify.error(error.response?.data?.message || error.message || "Something went wrong", {
-        description: error.response?.data?.desc || "Please try again later.",
-      });
+      notify.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Something went wrong",
+        {
+          description: error.response?.data?.desc || "Please try again later.",
+        },
+      );
     } finally {
       setLoading(false);
     }
@@ -156,7 +161,7 @@ function ForgotPasswordContent() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full cursor-pointer bg-white text-background hover:bg-accent hover:text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-white text-background hover:bg-accent hover:text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -301,7 +306,7 @@ function ForgotPasswordContent() {
                     type="submit"
                     disabled={loading || code.length !== 6}
                     onClick={verifyCode}
-                    className="w-full cursor-pointer bg-white text-background hover:bg-accent hover:text-white rounded-xl py-3.5 font-bold text-sm uppercase tracking-wider transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
+                    className="w-full bg-white text-background hover:bg-accent hover:text-white rounded-xl py-3.5 font-bold text-sm uppercase tracking-wider transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
                   >
                     {loading ? (
                       <>
@@ -350,7 +355,7 @@ function ForgotPasswordContent() {
                     type="button"
                     onClick={() => setCodePopup(false)}
                     disabled={loading}
-                    className="w-full cursor-pointer bg-transparent border border-white/10 hover:bg-white/5 text-gray-400 hover:text-white rounded-xl py-3 font-medium text-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                    className="w-full bg-transparent border border-white/10 hover:bg-white/5 text-gray-400 hover:text-white rounded-xl py-3 font-medium text-sm transition-all active:scale-[0.98] disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -380,7 +385,13 @@ function ForgotPasswordContent() {
 
 export default function ForgotPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-accent" size={48} /></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Loader2 className="animate-spin text-accent" size={48} />
+        </div>
+      }
+    >
       <ForgotPasswordContent />
     </Suspense>
   );
