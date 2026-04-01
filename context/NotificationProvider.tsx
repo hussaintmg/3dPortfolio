@@ -61,13 +61,28 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, [removeNotification]);
 
   const notifyMethods: NotifyMethods = {
-    success: (title, config) => addNotification({ title, type: "success",  ...config }),
-    error: (title, config) => addNotification({ title, type: "error", ...config }),
-    warning: (title, config) => addNotification({ title, type: "warning", ...config }),
-    info: (title, config) => addNotification({ title, type: "info", ...config }),
-    loading: (title, config) => addNotification({ title, type: "loading", duration: 0, ...config }),
+    success: (title, configOrDesc) => {
+      const config = typeof configOrDesc === "string" ? { description: configOrDesc } : configOrDesc;
+      return addNotification({ title, type: "success", ...config });
+    },
+    error: (title, configOrDesc) => {
+      const config = typeof configOrDesc === "string" ? { description: configOrDesc } : configOrDesc;
+      return addNotification({ title, type: "error", ...config });
+    },
+    warning: (title, configOrDesc) => {
+      const config = typeof configOrDesc === "string" ? { description: configOrDesc } : configOrDesc;
+      return addNotification({ title, type: "warning", ...config });
+    },
+    info: (title, configOrDesc) => {
+      const config = typeof configOrDesc === "string" ? { description: configOrDesc } : configOrDesc;
+      return addNotification({ title, type: "info", ...config });
+    },
+    loading: (title, configOrDesc) => {
+      const config = typeof configOrDesc === "string" ? { description: configOrDesc } : configOrDesc;
+      return addNotification({ title, type: "loading", duration: 0, ...config });
+    },
     dismiss: (id) => removeNotification(id),
-    promise: async (promise, msgs, config) => {
+    promise: async (promise, msgs, config = {}) => {
       const id = addNotification({ title: msgs.loading, type: "loading", duration: 0, ...config });
       try {
         const result = await promise;
