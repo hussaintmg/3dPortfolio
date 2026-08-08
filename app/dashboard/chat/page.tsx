@@ -1,316 +1,257 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import { getSocket } from "@/lib/socket-client";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Send,
-  User,
-  Check,
-  Package as PackageIcon,
+  MessageSquare,
   Search,
-  MoreVertical,
-  Paperclip,
-  Smile,
-  Loader2,
-  Phone,
+  Mic,
+  Image as ImageIcon,
   Video,
-  Sparkles,
+  FileText,
+  ChevronLeft,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import { getSocket } from "@/lib/socket-client";
+import ChatThread from "@/Components/chat/ChatThread";
+import { Skeleton } from "@/Components/ui/Skeleton";
+import FloatingInput from "@/Components/ui/FloatingInput";
 
-interface Message {
-  _id: string;
-  senderId: string;
-  receiverId: string;
-  message: string;
-  createdAt: string;
-  packageContext?: string;
+interface Conversation {
+  conversationId: string;
+  lastMessage: {
+    type: string;
+    text: string;
+    senderRole: string;
+    createdAt: string;
+  };
+  unread: number;
+  user: {
+    _id: string;
+    username: string;
+    displayName?: string;
+    email: string;
+    profileImage?: string;
+  } | null;
 }
 
-function ChatContent() {
-  const searchParams = useSearchParams();
-  const pkgId = searchParams?.get("packageId");
-  const pkgName = searchParams?.get("packageName");
+const typeLabel: Record<string, React.ReactNode> = {
+  audio: (
+    <span className="inline-flex items-center gap-1"><Mic size={11} /> Voice note</span>
+  ),
+  image: (
+    <span className="inline-flex items-center gap-1"><ImageIcon size={11} /> Photo</span>
+  ),
+  video: (
+    <span className="inline-flex items-center gap-1"><Video size={11} /> Video</span>
+  ),
+  file: (
+    <span className="inline-flex items-center gap-1"><FileText size={11} /> File</span>
+  ),
+};
 
-  const { user, loading: authLoading } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState("");
+function timeAgo(iso: string) {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
+
+export default function DashboardChatPage() {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState<Conversation | null>(null);
+  const [query, setQuery] = useState("");
 
-  const isAdmin = user?.role === "admin" || user?.role === "owner";
-  // For users, targeting "admin". In a multi-admin setup we would target the owner.
-  const receiverId = isAdmin ? searchParams?.get("receiverId") || "" : "admin";
-
-  useEffect(() => {
-    // Wake up Socket Server
-    fetch("/api/socket").catch(() => {});
-
-    if (user) {
-      const socket = getSocket();
-      socket.emit("join_room", user.id);
-
-      socket.on("receive_message", (msg: Message) => {
-        setMessages((prev) => [...prev, msg]);
-      });
-    }
-
-    // Auto-fill package context
-    if (pkgName && !isAdmin) {
-      setInputValue(
-        `Hi, I'm interested in the ${pkgName} package (ID: ${pkgId}). Can we discuss the details?`,
-      );
-    }
-
-    fetchMessages();
-
-    return () => {
-      const socket = getSocket();
-      socket.off("receive_message");
-    };
-  }, [user, receiverId]);
-
-  useEffect(() => {
-    // Scroll to bottom on new message
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const fetchMessages = async () => {
-    if (!user) return;
+  const fetchConversations = useCallback(async () => {
     try {
-      const resp = await fetch(`/api/chat?receiverId=${receiverId}`);
-      const data = await resp.json();
-      if (data.success) {
-        setMessages(data.messages);
-      }
-    } catch (err) {
-      console.error("Fetch history error:", err);
+      const res = await axios.get("/api/chat");
+      if (res.data.success) setConversations(res.data.conversations || []);
+    } catch {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleSendMessage = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!inputValue.trim() || !user) return;
+  useEffect(() => {
+    fetchConversations();
+    const poll = setInterval(fetchConversations, 10_000);
 
-    const msgData = {
-      senderId: user.id,
-      receiverId,
-      message: inputValue,
-      packageContext: pkgName || "",
-      createdAt: new Date().toISOString(),
+    const socket = getSocket();
+    socket.emit("chat:join", ["staff"]);
+    const onInbox = () => fetchConversations();
+    socket.on("chat:inbox", onInbox);
+
+    return () => {
+      clearInterval(poll);
+      socket.off("chat:inbox", onInbox);
     };
+  }, [fetchConversations]);
 
-    try {
-      // 1. Emit real-time
-      const socket = getSocket();
-      socket.emit("send_message", msgData);
-
-      // 2. Persist in DB
-      const resp = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(msgData),
-      });
-
-      const data = await resp.json();
-      if (data.success) {
-        setMessages((prev) => [...prev, { ...msgData, _id: data.chat._id }]);
-        setInputValue("");
-      }
-    } catch (err) {
-      console.error("Send error:", err);
-    }
+  // Opening a thread clears its unread counter locally
+  const openConversation = (c: Conversation) => {
+    setActive(c);
+    setConversations((prev) =>
+      prev.map((x) =>
+        x.conversationId === c.conversationId ? { ...x, unread: 0 } : x,
+      ),
+    );
   };
 
-  if (authLoading || loading) {
+  const filtered = conversations.filter((c) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase();
     return (
-      <div className="flex h-[80vh] items-center justify-center">
-        <Loader2 className="animate-spin text-accent" size={48} />
-      </div>
+      c.user?.username?.toLowerCase().includes(q) ||
+      c.user?.displayName?.toLowerCase().includes(q) ||
+      c.user?.email?.toLowerCase().includes(q)
     );
-  }
-
-  if (!user) return null;
+  });
 
   return (
-    <div className="h-[90vh] flex bg-[#F9FAFB] text-gray-900 rounded-4xl overflow-hidden border border-gray-100 shadow-sm mx-4 sm:mx-8 mb-8">
-      {/* Left Sidebar (Conversations List) */}
-      <div className="hidden lg:flex flex-col w-[380px] border-r border-gray-100 bg-gray-50/30">
-        <div className="p-8 pb-4 flex justify-between items-center">
-          <h2 className="text-2xl font-black tracking-tighter">Messages</h2>
-          <div className="flex gap-3 text-gray-400">
-            <MoreVertical size={20} className="hover:text-gray-900 transition-colors cursor-pointer" />
-          </div>
+    <div className="h-screen flex flex-col p-4 sm:p-6 gap-4">
+      <header className="flex items-center gap-4 shrink-0">
+        <div className="size-11 rounded-xl bg-card flex items-center justify-center text-accent border border-white/10">
+          <MessageSquare size={20} />
         </div>
+        <div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Client Chats</h1>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+            All conversations — realtime
+          </p>
+        </div>
+      </header>
 
-        <div className="p-6">
-          <div className="relative group">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-accent transition-colors"
-              size={18}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
+        {/* Conversation list */}
+        <div
+          className={`rounded-3xl border border-white/10 bg-card flex-col min-h-0 overflow-hidden ${active ? "hidden lg:flex" : "flex"}`}
+        >
+          <div className="p-4 border-b border-white/5">
+            <FloatingInput
+              label="Search clients"
+              icon={<Search size={15} />}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
             />
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              className="w-full rounded-2xl bg-white border border-gray-100 py-3.5 pl-12 pr-4 text-sm focus:ring-4 focus:ring-indigo-50 focus:border-accent transition-all placeholder-gray-300 shadow-sm"
-            />
           </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-          <div className="p-4 flex items-center gap-4 bg-white rounded-3xl border border-gray-100 shadow-sm group cursor-pointer transition-all hover:border-accent/10 hover:bg-white">
-            <div className="size-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-accent shadow-sm">
-                <User size={24} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-center mb-1">
-                <span className="font-bold text-sm tracking-tight truncate">
-                  {isAdmin ? receiverId || "System Direct" : "Head Architect"}
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">NOW</span>
-              </div>
-              <p className="text-xs text-gray-500 truncate font-medium">
-                Established terminal connection.
-              </p>
-            </div>
-          </div>
-          
-          {/* Placeholder for other chats */}
-          <div className="p-4 flex items-center gap-4 filter grayscale opacity-20 pointer-events-none">
-             <div className="size-12 rounded-2xl bg-gray-100" />
-             <div className="flex-1 space-y-2">
-                 <div className="h-3 w-24 bg-gray-100 rounded-full" />
-                 <div className="h-2 w-full bg-gray-50 rounded-full" />
-             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Chat Window */}
-      <div className="flex-1 flex flex-col relative bg-white">
-        {/* Chat Header */}
-        <div className="px-8 py-5 bg-white flex items-center justify-between border-b border-gray-50 shadow-sm z-10">
-          <div className="flex items-center gap-5">
-            <div className="relative">
-                <div className="size-12 rounded-2xl bg-gray-900 flex items-center justify-center text-white shadow-xl shadow-gray-900/10">
-                    {isAdmin ? <User size={24} /> : <Sparkles size={24} />}
-                </div>
-                <div className="absolute -bottom-1 -right-1 size-4 bg-white rounded-full flex items-center justify-center border-2 border-white">
-                    <div className="size-full bg-emerald-500 rounded-full animate-pulse" />
-                </div>
-            </div>
-            <div>
-              <h3 className="font-black text-lg tracking-tighter text-gray-900 leading-none mb-1">
-                {isAdmin
-                  ? receiverId || "Client Terminal"
-                  : "Architect-in-Chief"}
-              </h3>
-              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
-                 Live Link Established
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-6 text-gray-300">
-            <Video size={20} className="hover:text-gray-900 transition-colors cursor-pointer" />
-            <Phone size={18} className="hover:text-gray-900 transition-colors cursor-pointer" />
-            <MoreVertical size={20} className="hover:text-gray-900 transition-colors cursor-pointer" />
-          </div>
-        </div>
-
-        {/* Messages List Area */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#F9FAFB]/50 relative">
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#6366f1_1px,transparent_1px)] bg-size-[20px_20px]" />
-          
-          {messages.map((msg, idx) => {
-            const isMe = msg.senderId === user.id;
-            return (
-              <motion.div
-                key={msg._id || idx}
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className={`flex ${isMe ? "justify-end" : "justify-start"} relative z-10`}
-              >
-                <div
-                  className={`max-w-[75%] rounded-3xl p-5 shadow-sm relative ${
-                    isMe 
-                      ? "bg-gray-900 text-white rounded-tr-none shadow-xl shadow-gray-900/10" 
-                      : "bg-white text-gray-800 rounded-tl-none border border-gray-100 shadow-sm"
-                  }`}
-                >
-                  {msg.packageContext && (
-                    <div className={`flex items-center gap-3 mb-4 p-3 rounded-2xl text-[10px] font-black uppercase tracking-widest ${
-                        isMe ? "bg-white/10 text-indigo-200 border border-white/5" : "bg-indigo-50 text-accent border border-indigo-100"
-                    }`}>
-                      <PackageIcon size={14} strokeWidth={3} />
-                      STRATEGIC CONTEXT: {msg.packageContext}
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar" data-lenis-prevent>
+            {loading ? (
+              <div className="p-4 space-y-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex gap-3 items-center">
+                    <Skeleton className="size-11 rounded-2xl shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-3.5 w-2/3" />
+                      <Skeleton className="h-3 w-1/2" />
                     </div>
-                  )}
-                  <p className="text-sm leading-relaxed font-medium">{msg.message}</p>
-                  <div className={`mt-3 flex items-center gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                    <span className={`text-[9px] font-black uppercase tracking-widest ${isMe ? "text-gray-400" : "text-gray-300"}`}>
-                      {new Date(msg.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    {isMe && <Check size={14} className="text-emerald-400" strokeWidth={3} />}
                   </div>
-                </div>
-              </motion.div>
-            );
-          })}
-          <div ref={scrollRef} />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="py-16 text-center space-y-3 px-6">
+                <MessageSquare size={28} className="mx-auto text-gray-700" />
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                  No conversations yet
+                </p>
+                <p className="text-xs text-gray-600 font-medium">
+                  When a client messages you from the website chat, it appears here.
+                </p>
+              </div>
+            ) : (
+              filtered.map((c) => {
+                const name = c.user?.displayName || c.user?.username || "Unknown user";
+                const isActive = active?.conversationId === c.conversationId;
+                return (
+                  <button
+                    key={c.conversationId}
+                    onClick={() => openConversation(c)}
+                    className={`w-full text-left px-4 py-3.5 flex items-center gap-3.5 border-b border-white/3 transition-colors ${
+                      isActive ? "bg-accent/10" : "hover:bg-white/3"
+                    }`}
+                  >
+                    <div className="relative shrink-0">
+                      {c.user?.profileImage ? (
+                        <img src={c.user.profileImage} alt="" className="size-11 rounded-2xl object-cover" />
+                      ) : (
+                        <div className="size-11 rounded-2xl bg-linear-to-tr from-accent/70 to-purple-500/70 flex items-center justify-center text-white font-black text-sm uppercase">
+                          {name.slice(0, 1)}
+                        </div>
+                      )}
+                      {c.unread > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-accent text-white text-[9px] font-black flex items-center justify-center border-2 border-card">
+                          {c.unread}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-sm font-black truncate ${c.unread ? "text-white" : "text-gray-300"}`}>
+                          {name}
+                        </p>
+                        <span className="text-[9px] font-bold text-gray-600 shrink-0">
+                          {timeAgo(c.lastMessage.createdAt)}
+                        </span>
+                      </div>
+                      <p className={`text-xs truncate mt-0.5 font-medium ${c.unread ? "text-gray-300" : "text-gray-500"}`}>
+                        {c.lastMessage.senderRole !== "user" && (
+                          <span className="text-gray-600">You: </span>
+                        )}
+                        {c.lastMessage.type === "text"
+                          ? c.lastMessage.text
+                          : typeLabel[c.lastMessage.type] || "Attachment"}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        {/* Improved Chat Input Area */}
-        <div className="p-6 bg-white border-t border-gray-50 flex items-center gap-4">
-          <div className="flex gap-1">
-             <button className="size-11 rounded-2xl hover:bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all">
-                <Smile size={22} />
-             </button>
-             <button className="size-11 rounded-2xl hover:bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all">
-                <Paperclip size={22} />
-             </button>
-          </div>
-
-          <form onSubmit={handleSendMessage} className="flex-1">
-            <input
-              type="text"
-              placeholder="Transmit message to architect..."
-              className="w-full rounded-2xl bg-gray-50/50 border border-transparent focus:border-gray-100 focus:bg-white py-4 px-6 text-sm text-gray-900 focus:ring-4 focus:ring-gray-50 transition-all placeholder:text-gray-300 font-medium"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-            />
-          </form>
-
-          <button
-            onClick={() => handleSendMessage()}
-            disabled={!inputValue.trim()}
-            className="size-12 rounded-2xl bg-gray-900 flex items-center justify-center text-white hover:bg-black transition-all active:scale-[0.98] disabled:opacity-20 shadow-xl shadow-gray-900/10"
-          >
-            <Send size={20} strokeWidth={3} />
-          </button>
+        {/* Thread */}
+        <div
+          className={`rounded-3xl border border-white/10 bg-card flex-col min-h-0 overflow-hidden ${active ? "flex" : "hidden lg:flex"}`}
+        >
+          {active ? (
+            <>
+              <div className="flex items-center gap-3 px-5 py-3.5 border-b border-white/8 bg-white/2 shrink-0">
+                <button
+                  onClick={() => setActive(null)}
+                  className="lg:hidden p-2 -ml-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="size-10 rounded-2xl bg-linear-to-tr from-accent/70 to-purple-500/70 flex items-center justify-center text-white font-black text-sm uppercase">
+                  {(active.user?.displayName || active.user?.username || "?").slice(0, 1)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white truncate">
+                    {active.user?.displayName || active.user?.username || "Unknown user"}
+                  </p>
+                  <p className="text-[10px] font-bold text-gray-500 truncate">
+                    {active.user?.email || active.conversationId}
+                  </p>
+                </div>
+              </div>
+              <ChatThread
+                key={active.conversationId}
+                conversationId={active.conversationId}
+                className="flex-1"
+              />
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
+              <div className="size-16 rounded-2xl bg-white/5 flex items-center justify-center text-gray-600">
+                <MessageSquare size={26} />
+              </div>
+              <p className="text-sm font-bold text-gray-400">
+                Select a conversation to start replying
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
-  );
-}
-
-export default function ChatPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex h-[80vh] items-center justify-center">
-          <Loader2 className="animate-spin text-accent" size={48} />
-        </div>
-      }
-    >
-      <ChatContent />
-    </Suspense>
   );
 }

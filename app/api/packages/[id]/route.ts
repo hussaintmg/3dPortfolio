@@ -32,7 +32,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       price,
       discountedPrice,
       discountPercent,
-    }, { new: true });
+    }, { returnDocument: "after" });
 
     return NextResponse.json({ success: true, package: updated });
   } catch (error: any) {

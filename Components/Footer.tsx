@@ -4,8 +4,10 @@ import Link from "next/link";
 import { Mail, MapPin, Phone, Loader2 } from "lucide-react";
 import { FaGithub, FaLinkedin, FaFacebook, FaInstagram } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
-import { webData } from "../constants/webData";
 import { homeLinks } from "../constants/navigation";
+import { useSite } from "../context/SiteContext";
+import EditableText from "./editable/EditableText";
+import EditableBox from "./editable/EditableBox";
 import React, { useState } from "react";
 import axios from "axios";
 import { useToast } from "../Components/toast";
@@ -32,6 +34,7 @@ export default function Footer() {
   const pathname = usePathname();
   const currentYear = new Date().getFullYear();
   const { toast } = useToast();
+  const { settings } = useSite();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -89,18 +92,22 @@ export default function Footer() {
           <div className="space-y-6 sm:col-span-2 lg:col-span-1">
             <Link href="/" className="inline-block group">
               <h2 className="text-2xl sm:text-3xl font-black tracking-tighter text-white italic">
-                Genesis{" "}
+                {settings.websiteName}{" "}
                 <span className="text-indigo-400 underline decoration-indigo-500/30 underline-offset-4 group-hover:decoration-indigo-400 transition-all">
                   Lab
                 </span>
               </h2>
             </Link>
-            <p className="text-gray-400 text-sm leading-relaxed font-medium max-w-sm">
+            <EditableText
+              k="footer.tagline"
+              as="p"
+              className="text-gray-400 text-sm leading-relaxed font-medium max-w-sm block"
+            >
               Architecting modern web solutions with precision engineering and
               world-class design aesthetics at global scale.
-            </p>
+            </EditableText>
             <div className="flex gap-6 pt-2">
-              {webData.footer.socials.map((social) => {
+              {settings.socials.map((social) => {
                 const iconData = iconMap[social.icon] || iconMap.Github;
                 return (
                   <a
@@ -118,21 +125,29 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Navigation Links */}
+          {/* Navigation Links — labels and destinations are both editable */}
           <div className="space-y-6">
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-indigo-400">
-              Navigation
+              <EditableText k="footer.nav.title">Navigation</EditableText>
             </h3>
             <nav className="flex flex-col gap-3">
-              {homeLinks.map((link) => (
-                <Link
-                  key={link.name}
+              {(settings.footerLinks.length > 0
+                ? settings.footerLinks
+                : homeLinks
+              ).map((link, i) => (
+                <EditableBox
+                  key={`${link.name}-${i}`}
+                  k={`footer.nav.${i}.link`}
+                  label={`Footer link ${i + 1}`}
+                  as="a"
                   href={link.url}
-                  className="text-sm font-semibold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group"
+                  className="text-sm font-semibold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group w-fit"
                 >
                   <span className="max-w-1 h-1 bg-indigo-500 rounded-full opacity-0 group-hover:opacity-100 transition-all group-hover:w-2" />
-                  {link.name}
-                </Link>
+                  <EditableText k={`footer.nav.${i}.label`} label="Link label">
+                    {link.name}
+                  </EditableText>
+                </EditableBox>
               ))}
             </nav>
           </div>
@@ -144,7 +159,7 @@ export default function Footer() {
             </h3>
             <div className="space-y-4">
               <a
-                href={`mailto:${webData.email}`}
+                href={`mailto:${settings.email}`}
                 target="_blank"
                 className="flex items-center gap-3 text-sm text-gray-400 hover:text-white transition-colors group"
               >
@@ -152,10 +167,10 @@ export default function Footer() {
                   size={16}
                   className="text-indigo-400 group-hover:scale-110 transition-transform"
                 />
-                <span className="font-medium">{webData.email}</span>
+                <span className="font-medium">{settings.email}</span>
               </a>
               <a
-                href={`https://wa.me/${webData.phone.replace(/\s/g, "")}`}
+                href={`https://wa.me/${settings.phone.replace(/\s/g, "")}`}
                 target="_blank"
                 className="flex items-center gap-3 text-sm text-gray-400 hover:text-white transition-colors group"
               >
@@ -163,11 +178,11 @@ export default function Footer() {
                   size={16}
                   className="text-indigo-400 group-hover:scale-110 transition-transform"
                 />
-                <span className="">{webData.phone}</span>
+                <span className="">{settings.phone}</span>
               </a>
               <div className="flex items-start gap-3 text-sm text-gray-400">
                 <MapPin size={16} className="text-indigo-400 mt-0.5 shrink-0" />
-                <span className="font-medium">{webData.footer.address}</span>
+                <span className="font-medium">{settings.address}</span>
               </div>
             </div>
           </div>
@@ -211,7 +226,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-16 sm:mt-20 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
           <p className="text-[11px] font-black text-gray-500 uppercase tracking-[0.2em]">
-            {webData.footer.copyright}
+            © {currentYear} {settings.websiteName}. All rights reserved.
           </p>
         </div>
       </div>

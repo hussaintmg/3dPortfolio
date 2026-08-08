@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import { Lock, ArrowRight, ShieldCheck, Loader2, KeyRound } from "lucide-react";
+import { ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
 import { gsap } from "gsap";
 import { notify } from "@/lib/notify";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
+import FloatingInput from "@/Components/ui/FloatingInput";
+import EditableText from "@/Components/editable/EditableText";
 function ResetPasswordContent() {
   const [formData, setFormData] = useState({
     password: "",
@@ -99,12 +101,13 @@ function ResetPasswordContent() {
         <div className="bg-card/50 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-accent/5">
           <div className="text-center space-y-4 mb-10">
             <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent">
-              <ShieldCheck size={12} /> Key Re-initialization
+              <ShieldCheck size={12} />
+              <EditableText k="reset.badge">Key Re-initialization</EditableText>
             </div>
             <h1 className="text-4xl font-black text-white tracking-tighter">
-              Reset{" "}
+              <EditableText k="reset.heading.pre">Reset</EditableText>{" "}
               <span className="italic text-transparent bg-clip-text bg-linear-to-r from-accent to-purple-400">
-                Access Key.
+                <EditableText k="reset.heading.highlight">Access Key.</EditableText>
               </span>
             </h1>
             <p className="text-sm text-gray-400 font-medium">
@@ -113,50 +116,28 @@ function ResetPasswordContent() {
           </div>
 
           <form onSubmit={handleReset} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">
-                New Access Key
-              </label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors">
-                  <Lock size={18} />
-                </div>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  className="w-full bg-background/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-gray-600"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+            <FloatingInput
+              label="New Access Key"
+              type="password"
+              required
+              value={formData.password}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+            />
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">
-                Confirm Access Key
-              </label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors">
-                  <Lock size={18} />
-                </div>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  className="w-full bg-background/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-gray-600"
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confirmPassword: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
+            <FloatingInput
+              label="Confirm Access Key"
+              type="password"
+              required
+              value={formData.confirmPassword}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  confirmPassword: e.target.value,
+                })
+              }
+            />
 
             <button
               type="submit"

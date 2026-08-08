@@ -7,8 +7,13 @@ import { gsap } from "gsap";
 import { notify } from "@/lib/notify";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
+import FloatingInput from "@/Components/ui/FloatingInput";
+import EditableText from "@/Components/editable/EditableText";
+import EditableBox from "@/Components/editable/EditableBox";
+import { useSite } from "@/context/SiteContext";
 
 function ForgotPasswordContent() {
+  const { canEdit, isEditing } = useSite();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [code, setCode] = useState("");
@@ -128,35 +133,26 @@ function ForgotPasswordContent() {
 
           <div className="text-center space-y-4 mb-10">
             <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent">
-              <KeyRound size={12} /> Recovery Protocol
+              <KeyRound size={12} />
+              <EditableText k="forgot.badge">Recovery Protocol</EditableText>
             </div>
             <h1 className="text-4xl font-black text-white tracking-tighter">
-              Forgot{" "}
+              <EditableText k="forgot.heading.pre">Forgot</EditableText>{" "}
               <span className="italic text-transparent bg-clip-text bg-linear-to-r from-accent to-purple-400">
-                Access Key.
+                <EditableText k="forgot.heading.highlight">Access Key.</EditableText>
               </span>
             </h1>
           </div>
 
           <form onSubmit={handleResetRequest} className="space-y-8">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">
-                Username / Email
-              </label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors">
-                  <Mail size={18} />
-                </div>
-                <input
-                  type="text"
-                  required
-                  placeholder="name@nexus.sh"
-                  className="w-full bg-background/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-gray-600"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
+            <FloatingInput
+              label="Username / Email"
+              type="text"
+              required
+              icon={<Mail size={18} />}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
 
             <button
               type="submit"
@@ -182,7 +178,9 @@ function ForgotPasswordContent() {
         </div>
       </div>
 
-      {codePopup && (
+      {/* The modal normally needs a token; in edit mode it is shown anyway so
+          the owner can rewrite and restyle it. */}
+      {(codePopup || (canEdit && isEditing)) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop with animation */}
           <div
@@ -215,24 +213,39 @@ function ForgotPasswordContent() {
                       />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">
+                  <EditableText
+                    k="otp.title"
+                    as="h2"
+                    label="OTP title"
+                    className="text-2xl font-black text-white tracking-tight block"
+                  >
                     Enter Code
-                  </h2>
+                  </EditableText>
                 </div>
 
                 {/* Description */}
-                <p className="text-gray-400 text-sm mt-2">
+                <EditableText
+                  k="otp.description"
+                  as="p"
+                  label="OTP description"
+                  className="text-gray-400 text-sm mt-2 block"
+                >
                   Please enter the 6-digit verification code sent to your email
-                </p>
+                </EditableText>
               </div>
 
               {/* Content Section */}
               <div className="p-6 space-y-6">
                 {/* Code Input with Auto-focus */}
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <EditableText
+                    k="otp.fieldLabel"
+                    as="label"
+                    label="Code field label"
+                    className="text-xs font-medium text-gray-400 uppercase tracking-wider block"
+                  >
                     Verification Code
-                  </label>
+                  </EditableText>
 
                   {/* OTP Input Style */}
                   <div className="flex gap-2 justify-between">
@@ -302,7 +315,10 @@ function ForgotPasswordContent() {
 
                 {/* Action Buttons */}
                 <div className="space-y-3">
-                  <button
+                  <EditableBox
+                    k="otp.verify.button"
+                    label="Verify button"
+                    as="button"
                     type="submit"
                     disabled={loading || code.length !== 6}
                     onClick={verifyCode}
@@ -333,7 +349,9 @@ function ForgotPasswordContent() {
                       </>
                     ) : (
                       <>
-                        Verify Code
+                        <EditableText k="otp.verify.label" label="Verify button text">
+                          Verify Code
+                        </EditableText>
                         <svg
                           className="w-4 h-4 group-hover:translate-x-1 transition-transform"
                           fill="none"
@@ -349,30 +367,42 @@ function ForgotPasswordContent() {
                         </svg>
                       </>
                     )}
-                  </button>
+                  </EditableBox>
 
-                  <button
+                  <EditableBox
+                    k="otp.cancel.button"
+                    label="Cancel button"
+                    as="button"
                     type="button"
                     onClick={() => setCodePopup(false)}
                     disabled={loading}
-                    className="w-full bg-transparent border border-white/10 hover:bg-white/5 text-gray-400 hover:text-white rounded-xl py-3 font-medium text-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                    className="w-full bg-transparent border border-white/10 hover:bg-white/5 text-gray-400 hover:text-white rounded-xl py-3 font-medium text-sm transition-all active:scale-[0.98] disabled:opacity-50 text-center"
                   >
-                    Cancel
-                  </button>
+                    <EditableText k="otp.cancel.label" label="Cancel button text">
+                      Cancel
+                    </EditableText>
+                  </EditableBox>
                 </div>
 
                 {/* Help Text */}
                 <p className="text-center text-xs text-gray-500">
-                  Didn't receive the code? Check your spam folder or{" "}
-                  <button
+                  <EditableText k="otp.help" label="Help text">
+                    Didn't receive the code? Check your spam folder or
+                  </EditableText>{" "}
+                  <EditableBox
+                    k="otp.support.button"
+                    label="Support link"
+                    as="button"
                     type="button"
                     onClick={() =>
                       (window.location.href = "mailto:support@example.com")
                     }
                     className="text-accent hover:underline"
                   >
-                    contact support
-                  </button>
+                    <EditableText k="otp.support.label" label="Support link text">
+                      contact support
+                    </EditableText>
+                  </EditableBox>
                 </p>
               </div>
             </div>

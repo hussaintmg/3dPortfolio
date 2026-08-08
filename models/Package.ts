@@ -15,6 +15,12 @@ const PackageSchema = new mongoose.Schema({
     },
   ],
   isCustom: { type: Boolean, default: false },
+  /** Label shown on the card, e.g. "Starter", "Popular", "Best Value". */
+  badge: { type: String, default: "" },
+  /** Featured packages appear on the home page (top 3 by order). */
+  featured: { type: Boolean, default: false },
+  /** Sort order — lower comes first. */
+  order: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 

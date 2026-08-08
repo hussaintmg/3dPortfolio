@@ -1,9 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Space_Grotesk } from "next/font/google";
+import EditableText from "@/Components/editable/EditableText";
+import EditableBox from "@/Components/editable/EditableBox";
 
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"] });
 
@@ -24,72 +25,79 @@ export default function StackedCardsHero() {
 
       <div className="min-h-[90vh] flex items-center justify-center py-12 lg:py-0">
         <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center z-10 px-6 md:px-12 h-full">
-          {/* LEFT: TEXT (Framer Motion) */}
+          {/* LEFT: TEXT */}
           <div className="flex flex-col items-start text-left space-y-6 lg:space-y-8 order-1 relative z-20 pointer-events-auto shrink-0">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
-              className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-1.5 text-[10px] font-bold text-blue-300 backdrop-blur-md uppercase tracking-[0.2em]"
+            <div
+              style={{ "--hero-i": 0 } as React.CSSProperties}
+              className="hero-anim hero-fallback inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-1.5 text-[10px] font-bold text-blue-300 backdrop-blur-md uppercase tracking-[0.2em]"
             >
-              <Sparkles size={12} className="text-blue-400" /> Digital
-              Architecture
-            </motion.div>
+              <Sparkles size={12} className="text-blue-400" />
+              <EditableText k="home.hero.badge">Digital Architecture</EditableText>
+            </div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
-              className={`text-4xl sm:text-5xl md:text-6xl lg:text-[4rem] font-bold tracking-tight leading-[1.1] text-white/95 ${spaceGrotesk.className}`}
+            <h1
+              style={{ "--hero-i": 1 } as React.CSSProperties}
+              className={`hero-anim hero-fallback text-4xl sm:text-5xl md:text-6xl lg:text-[4rem] font-bold tracking-tight leading-[1.1] text-white/95 ${spaceGrotesk.className}`}
             >
-              Designing and building <br className="hidden md:block" />
+              <EditableText k="home.hero.heading.pre">
+                Designing and building
+              </EditableText>{" "}
+              <br className="hidden md:block" />
               <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-purple-400">
-                high-performance
+                <EditableText k="home.hero.heading.highlight">
+                  high-performance
+                </EditableText>
               </span>{" "}
-              web systems.
-            </motion.h1>
+              <EditableText k="home.hero.heading.tail">
+                web systems.
+              </EditableText>
+            </h1>
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 0.6, ease: "easeOut" }}
-              className="text-base md:text-lg lg:text-xl text-slate-400 max-w-xl font-normal leading-relaxed"
+            <p
+              style={{ "--hero-i": 2 } as React.CSSProperties}
+              className="hero-anim hero-fallback text-base md:text-lg lg:text-xl text-slate-400 max-w-xl font-normal leading-relaxed"
             >
-              I develop fast, scalable, and visually refined web applications,
-              where clean architecture meets modern user experience.
-            </motion.p>
+              <EditableText k="home.hero.subheading">
+                I develop fast, scalable, and visually refined web applications,
+                where clean architecture meets modern user experience.
+              </EditableText>
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.8, ease: "easeOut" }}
-              className="flex flex-col sm:flex-row items-center gap-4 pt-4 w-full sm:w-auto"
+            <div
+              style={{ "--hero-i": 3 } as React.CSSProperties}
+              className="hero-anim hero-fallback flex flex-col sm:flex-row items-center gap-4 pt-4 w-full sm:w-auto"
             >
-              <Link
+              <EditableBox
+                k="home.hero.cta1.button"
+                label="Primary CTA button"
+                as="a"
                 href="#projects"
                 className="group relative w-full sm:w-auto px-8 py-4 rounded-md bg-white text-black font-bold text-sm tracking-wide transition-all duration-300 hover:scale-105 active:scale-95 flex justify-center items-center shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.3)]"
               >
                 <span className="relative z-10 flex items-center gap-2">
-                  View Work{" "}
+                  <EditableText k="home.hero.cta1">View Work</EditableText>
                   <ArrowRight
                     size={16}
                     className="group-hover:translate-x-1 transition-transform"
                   />
                 </span>
-              </Link>
+              </EditableBox>
 
-              <Link
+              <EditableBox
+                k="home.hero.cta2.button"
+                label="Secondary CTA button"
+                as="a"
                 href="/contact"
                 className="group relative w-full sm:w-auto px-8 py-4 rounded-md border border-white/10 bg-transparent text-white font-medium text-sm tracking-wide transition-all duration-300 hover:bg-white/5 hover:border-white/20 hover:scale-105 active:scale-95 flex justify-center items-center"
               >
                 <span className="relative z-10 flex items-center gap-2">
-                  Get in Touch
+                  <EditableText k="home.hero.cta2">Get in Touch</EditableText>
                 </span>
-              </Link>
-            </motion.div>
+              </EditableBox>
+            </div>
           </div>
 
-          {/* RIGHT: 3D Scene moved to Global Background */}
+          {/* RIGHT: 3D Scene lives in the global background */}
           <div className="relative w-full h-[300px] lg:h-[600px] order-2 z-10 pointer-events-none mt-8 lg:mt-0" />
         </div>
       </div>

@@ -1,6 +1,13 @@
 "use client";
 
-import { useRef, useMemo, forwardRef, useImperativeHandle, useEffect } from "react";
+import {
+  useRef,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+  useEffect,
+  Suspense,
+} from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   MeshDistortMaterial,
@@ -205,9 +212,19 @@ const Scene3D = forwardRef<Scene3DHandle>((_, ref) => {
     // Canvas fills whatever container the parent gives it
     <Canvas
       camera={{ position: [1.2, 0, 4.5], fov: 45 }}
-      dpr={[1, 2]}
-      gl={{ antialias: true, alpha: true }}
+      dpr={[1, 1.5]}
+      gl={{
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance",
+      }}
       style={{ background: "transparent", width: "100%", height: "100%" }}
+      onCreated={(state) => {
+        // Debug/E2E handle in dev only
+        if (process.env.NODE_ENV !== "production") {
+          (window as any).__r3f = state;
+        }
+      }}
     >
       <ambientLight intensity={0.3} />
       <directionalLight position={[5, 5, 5]} intensity={0.8} color="#e8c97a" />
@@ -217,7 +234,15 @@ const Scene3D = forwardRef<Scene3DHandle>((_, ref) => {
         color="#4a6fff"
       />
       <pointLight position={[0, 0, 3]} intensity={0.5} color="#c9963c" />
-      <Environment preset="night" />
+      {/*
+       * Same HDR the drei "night" preset uses (dikhololo_night_1k.hdr), but
+       * served from OUR origin. Wrapped in its OWN Suspense so the sphere
+       * renders IMMEDIATELY with the lights above — reflections fade in as
+       * soon as the HDR finishes downloading (it is preloaded from layout).
+       */}
+      <Suspense fallback={null}>
+        <Environment files="/hdr/dikhololo_night_1k.hdr" />
+      </Suspense>
       <FloatingGeometry
         burstActive={burstActive}
         burstStartMs={burstStartMs}

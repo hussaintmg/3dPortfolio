@@ -65,6 +65,9 @@ export default function DashboardPackages() {
     features: [""] as string[],
     media: [] as PackageMedia[],
     isCustom: false,
+    badge: "",
+    featured: false,
+    order: 0,
   });
 
   const fetchPackages = async () => {
@@ -95,6 +98,9 @@ export default function DashboardPackages() {
       features: [""],
       media: [],
       isCustom: false,
+      badge: "",
+      featured: false,
+      order: 0,
     });
     setEditingPkg(null);
   };
@@ -111,6 +117,9 @@ export default function DashboardPackages() {
       features: [...pkg.features],
       media: [...pkg.media],
       isCustom: pkg.isCustom,
+      badge: (pkg as any).badge || "",
+      featured: (pkg as any).featured || false,
+      order: (pkg as any).order || 0,
     });
     setIsModalOpen(true);
   };
@@ -572,6 +581,61 @@ export default function DashboardPackages() {
                           />
                           <span className="text-xs font-black text-gray-400 group-hover:text-gray-900 transition-colors uppercase tracking-widest">
                             Bespoke Logic
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Badge / Featured / Order — controls home page display */}
+                    <div className="rounded-3xl border border-indigo-100 bg-indigo-50/40 p-6 space-y-6">
+                      <label className="text-[10px] font-black text-accent uppercase tracking-widest block">
+                        Homepage Display
+                      </label>
+                      <div className="flex flex-wrap items-end gap-6">
+                        <div className="space-y-3 flex-1 min-w-[180px]">
+                          <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">
+                            Badge Label (e.g. Starter, Popular)
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full bg-white border border-gray-100 rounded-2xl px-5 py-4 text-gray-900 focus:border-accent focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-medium text-sm"
+                            placeholder="Leave empty for no badge"
+                            value={formData.badge}
+                            onChange={(e) =>
+                              setFormData({ ...formData, badge: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-3 w-28">
+                          <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">
+                            Sort Order
+                          </label>
+                          <input
+                            type="number"
+                            className="w-full bg-white border border-gray-100 rounded-2xl px-5 py-4 text-gray-900 focus:border-accent outline-none transition-all font-black text-sm"
+                            value={formData.order}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                order: Number(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                        <label className="flex items-center gap-3 pb-4 group cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="size-6 rounded-lg bg-white border-gray-200 text-accent focus:ring-0 checked:bg-accent"
+                            checked={formData.featured}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                featured: e.target.checked,
+                              })
+                            }
+                          />
+                          <span className="text-[10px] font-black text-gray-500 group-hover:text-gray-900 transition-colors uppercase tracking-widest">
+                            Feature on Home (top 3)
                           </span>
                         </label>
                       </div>

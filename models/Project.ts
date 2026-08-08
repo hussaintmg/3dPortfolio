@@ -6,12 +6,13 @@ const ProjectSchema = new mongoose.Schema({
   technologies: [{ type: String }],
   liveLink: { type: String },
   githubLink: { type: String },
-  media: [
-    {
-      url: { type: String, required: true },
-      type: { type: String, enum: ["image", "video"], default: "image" },
-    },
-  ],
+  media: {
+    url: { type: String, required: true },
+    name: { type: String },
+    size: { type: Number },
+    type: { type: String },
+    storageKey: { type: String },
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

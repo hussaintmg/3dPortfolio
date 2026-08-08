@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 import { signToken, comparePassword } from "@/lib/auth";
 import { findUser } from "@/lib/userHelper";
 import { cookies } from "next/headers";
+import { guardRate } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    // Brute-force protection: 5 attempts/minute per IP
+    const limited = guardRate(req, "login", 5, 60_000);
+    if (limited) return limited;
+
     const { email, password } = await req.json();
 
     if (!email || !password) {

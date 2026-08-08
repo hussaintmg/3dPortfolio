@@ -5,12 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
 import { homeLinks } from "../constants/navigation";
-import { webData } from "../constants/webData";
 import { useAuth } from "../context/AuthContext";
+import { useSite } from "../context/SiteContext";
 import { gsap } from "gsap";
 
 export default function Navbar() {
   const { user, loading, logout } = useAuth();
+  const { settings } = useSite();
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname() || "";
@@ -117,7 +118,7 @@ export default function Navbar() {
             </div>
             <Link href="/">
               <div className="text-xl font-black tracking-tighter text-white hover:text-[#6366F1] transition-colors uppercase">
-                {webData.websiteName}
+                {settings.websiteName}
               </div>
             </Link>
           </div>
@@ -208,7 +209,7 @@ export default function Navbar() {
         {/* Header Section */}
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
           <span className="text-xl font-bold tracking-tighter bg-linear-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            {webData.websiteName}
+            {settings.websiteName}
           </span>
           <button
             onClick={() => setIsOpen(false)}

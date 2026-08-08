@@ -4,18 +4,17 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Mail,
-  Lock,
   User,
   ArrowRight,
   ShieldCheck,
   Loader2,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { gsap } from "gsap";
 import { notify } from "@/lib/notify";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import FloatingInput from "@/Components/ui/FloatingInput";
+import EditableText from "@/Components/editable/EditableText";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,8 +24,6 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -83,140 +80,71 @@ export default function RegisterPage() {
         <div className="bg-card/50 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-accent/5">
           <div className="text-center space-y-4 mb-10">
             <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent">
-              <ShieldCheck size={12} /> Registration Portal
+              <ShieldCheck size={12} />
+              <EditableText k="register.badge">Registration Portal</EditableText>
             </div>
             <h1 className="text-4xl font-black text-white tracking-tighter leading-tight">
-              Initialize{" "}
+              <EditableText k="register.heading.pre">Initialize</EditableText>{" "}
               <span className="italic text-transparent bg-clip-text bg-linear-to-r from-accent to-purple-400">
-                Node.
+                <EditableText k="register.heading.highlight">Node.</EditableText>
               </span>
             </h1>
           </div>
 
           <form onSubmit={handleRegister} className="space-y-6">
-            <div className="space-y-2">
-              <label
-                htmlFor="username"
-                className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1"
-              >
-                Username
-              </label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors">
-                  <User size={18} />
-                </div>
-                <input
-                  type="text"
-                  required
-                  id="username"
-                  placeholder="John Doe"
-                  className="w-full bg-background/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-gray-600"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+            <FloatingInput
+              label="Username"
+              type="text"
+              required
+              id="username"
+              icon={<User size={18} />}
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+            />
+
+            <FloatingInput
+              label="Email Address"
+              type="email"
+              required
+              id="email"
+              icon={<Mail size={18} />}
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+            />
 
             <div className="space-y-2">
-              <label
-                htmlFor="email"
-                className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1"
-              >
-                Email Address
-              </label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors">
-                  <Mail size={18} />
-                </div>
-                <input
-                  type="email"
-                  required
-                  id="email"
-                  placeholder="name@nexus.sh"
-                  className="w-full bg-background/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-gray-600"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label
-                htmlFor="password"
-                className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1"
-              >
-                Password
-              </label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors">
-                  <Lock size={18} />
-                </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  id="password"
-                  placeholder="••••••••"
-                  className="w-full bg-background/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-gray-600"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors"
-                >
-                  {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-                </button>
-              </div>
+              <FloatingInput
+                label="Password"
+                type="password"
+                required
+                id="password"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+              />
               <p className="text-[9px] text-gray-600 ml-1 uppercase font-bold tracking-widest">
                 MIN: 8 CHARS // ALPHANUMERIC REQUIRED
               </p>
             </div>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="confirmPassword"
-                className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1"
-              >
-                Confirm Password
-              </label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors">
-                  <Lock size={18} />
-                </div>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  required
-                  id="confirmPassword"
-                  placeholder="••••••••"
-                  className="w-full bg-background/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-gray-600"
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confirmPassword: e.target.value,
-                    })
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors"
-                >
-                  {showConfirmPassword ? (
-                    <Eye size={18} />
-                  ) : (
-                    <EyeOff size={18} />
-                  )}
-                </button>
-              </div>
-            </div>
+            <FloatingInput
+              label="Confirm Password"
+              type="password"
+              required
+              id="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  confirmPassword: e.target.value,
+                })
+              }
+            />
 
             <button
               type="submit"

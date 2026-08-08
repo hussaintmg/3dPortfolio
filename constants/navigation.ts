@@ -2,8 +2,8 @@ import { LayoutDashboard, Users, Package, Briefcase, FolderOpen, MessageSquare, 
 
 export const homeLinks = [
   { name: "Home", url: "/" },
-  { name: "Services", url: "/#services" },
-  { name: "Projects", url: "/#projects" },
+  { name: "Services", url: "/services" },
+  { name: "Projects", url: "/projects" },
   { name: "Packages", url: "/packages" },
   { name: "Contact", url: "/contact" },
 ];
@@ -118,6 +118,30 @@ export const ownerDashboardLinks = [
     name: "Packages",
     url: "/dashboard/packages",
     icon: "Package",
+    dropdown: null,
+  },
+  {
+    name: "Invoices",
+    url: "/dashboard/invoices",
+    icon: "ReceiptText",
+    dropdown: null,
+  },
+  {
+    name: "Payments",
+    url: "/dashboard/payments",
+    icon: "CreditCard",
+    dropdown: null,
+  },
+  {
+    name: "Templates",
+    url: "/dashboard/templates",
+    icon: "FileText",
+    dropdown: null,
+  },
+  {
+    name: "Variables",
+    url: "/dashboard/variables",
+    icon: "Braces",
     dropdown: null,
   },
   {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
+import NotificationsBell from "@/Components/dashboard/NotificationsBell";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -39,6 +40,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sidebar Component */}
       <Sidebar isOpen={isOpen} setIsOpen={setIsOpen} isMobile={isMobile} />
+
+      {/* Notification bell (admin/owner) */}
+      <NotificationsBell />
 
       {/* Main Content Area */}
       <main 

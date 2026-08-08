@@ -21,6 +21,11 @@ import {
   UserCheck,
   UserRoundX,
   Compass,
+  LayoutTemplate,
+  ReceiptText,
+  FileText,
+  Braces,
+  CreditCard,
 } from "lucide-react";
 import {
   userDashboardLinks,
@@ -29,6 +34,7 @@ import {
 } from "../../constants/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { gsap } from "gsap";
+import { webData } from "@/constants/webData";
 
 const iconMap = {
   LayoutDashboard: <LayoutDashboard size={18} />,
@@ -45,6 +51,11 @@ const iconMap = {
   UserCheck: <UserCheck size={18} />,
   UserRoundX: <UserRoundX size={18} />,
   Compass: <Compass size={18} />,
+  LayoutTemplate: <LayoutTemplate size={18} />,
+  ReceiptText: <ReceiptText size={18} />,
+  FileText: <FileText size={18} />,
+  Braces: <Braces size={18} />,
+  CreditCard: <CreditCard size={18} />,
 };
 
 interface SidebarLink {
@@ -174,7 +185,7 @@ export default function Sidebar({
               className="text-xl font-bold tracking-tight text-white whitespace-nowrap overflow-hidden transition-opacity"
               style={{ opacity: isOpen ? 1 : 0 }}
             >
-              Genesis <span className="text-[#6366F1]">Portal</span>
+              {webData.websiteName} <span className="text-[#6366F1]">Portal</span>
             </div>
           </Link>
 

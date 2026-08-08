@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { signToken } from "@/lib/auth";
 import { findUser, createUser } from "@/lib/userHelper";
+import { guardRate } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    // Abuse protection: 3 registrations/hour per IP
+    const limited = guardRate(req, "register", 3, 60 * 60_000);
+    if (limited) return limited;
+
     const { name, email, password, confirmPassword } = await req.json();
 
     const username = name.toLowerCase().replace(/\s+/g, "");

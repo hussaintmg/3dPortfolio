@@ -31,6 +31,7 @@ import {
   ExternalLink,
   Pencil,
   Palette,
+  RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { notify } from "@/lib/notify";
@@ -54,6 +55,52 @@ const FONT_FAMILIES = [
   { name: "Serif", value: "'Times New Roman', serif" },
   { name: "Mono", value: "'JetBrains Mono', monospace" },
 ];
+
+const DEFAULT_CSS = {
+  display: "",
+  flexDir: "",
+  flexWrap: "",
+  align: "",
+  justify: "",
+  gap: "",
+  textAlign: "",
+  pt: "",
+  pr: "",
+  pb: "",
+  pl: "",
+  mt: "",
+  mr: "",
+  mb: "",
+  ml: "",
+  radius: "",
+  rtl: "",
+  rtr: "",
+  rbr: "",
+  rbl: "",
+  btw: "",
+  brw: "",
+  bbw: "",
+  blw: "",
+  bs: "",
+  btc: "",
+  brc: "",
+  bbc: "",
+  blc: "",
+  bg: "",
+  color: "",
+  fw: "",
+  fs: "",
+  ff: "",
+  width: "",
+  height: "",
+  zIndex: "",
+  pos: "",
+  t: "",
+  r: "",
+  b: "",
+  l: "",
+  custom: "",
+};
 
 function EmailComposerContent() {
   const searchParams = useSearchParams();
@@ -102,49 +149,7 @@ function EmailComposerContent() {
     radius: "8",
   });
 
-  const [css, setCss] = useState({
-    display: "block",
-    flexDir: "column",
-    flexWrap: "nowrap",
-    align: "stretch",
-    justify: "flex-start",
-    gap: "",
-    pt: "",
-    pr: "",
-    pb: "",
-    pl: "",
-    mt: "",
-    mr: "",
-    mb: "",
-    ml: "",
-    rtl: "",
-    rtr: "",
-    rbr: "",
-    rbl: "",
-    btw: "",
-    brw: "",
-    bbw: "",
-    blw: "",
-    bs: "solid",
-    btc: "",
-    brc: "",
-    bbc: "",
-    blc: "",
-    bg: "",
-    color: "",
-    fw: "400",
-    fs: "16px",
-    ff: FONT_FAMILIES[0].value,
-    width: "100%",
-    height: "auto",
-    zIndex: "1",
-    pos: "static",
-    t: "",
-    r: "",
-    b: "",
-    l: "",
-    custom: "",
-  });
+  const [css, setCss] = useState(DEFAULT_CSS);
 
   const [activePicker, setActivePicker] = useState<string | null>(null);
   const colors = [
@@ -233,6 +238,74 @@ function EmailComposerContent() {
     syncToIframe();
   };
 
+  const getSelectedEditableElement = () => {
+    const sel = window.getSelection();
+    if (!sel?.rangeCount || !editorRef.current) return null;
+
+    let n: Node | null = sel.anchorNode;
+    if (n?.nodeType === Node.TEXT_NODE) n = n.parentElement;
+
+    while (n && n !== editorRef.current) {
+      if (n.nodeType === Node.ELEMENT_NODE) {
+        const el = n as HTMLElement;
+        if (el.tagName === "A" || BLOCK_TAGS.includes(el.tagName)) return el;
+      }
+      n = n.parentNode;
+    }
+
+    return null;
+  };
+
+  const resetCssPanel = () => {
+    setCss(DEFAULT_CSS);
+    setActivePicker(null);
+  };
+
+  const resetSelectedElementStyle = () => {
+    const el = getSelectedEditableElement();
+    if (!el) return notify.error("Select an element first.");
+    el.removeAttribute("style");
+    syncToIframe();
+    notify.success("Element style reset.");
+  };
+
+  const setRadiusAll = (value: string) => {
+    setCss({
+      ...css,
+      radius: value,
+      rtl: value,
+      rtr: value,
+      rbr: value,
+      rbl: value,
+    });
+  };
+
+  const setCenterPreset = (mode: "text" | "self" | "children") => {
+    if (mode === "text") {
+      setCss({ ...css, textAlign: "center" });
+      return;
+    }
+
+    if (mode === "self") {
+      setCss({
+        ...css,
+        display: css.display || "block",
+        width: css.width || "fit-content",
+        ml: "auto",
+        mr: "auto",
+      });
+      return;
+    }
+
+    setCss({
+      ...css,
+      display: "flex",
+      flexDir: "column",
+      align: "center",
+      justify: "center",
+    });
+  };
+
   const openLinkPanel = () => {
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
@@ -283,14 +356,14 @@ function EmailComposerContent() {
   };
 
   const applyMatrixCss = (isWrap = false) => {
-    const s: string[] = [];
+    const styles: Record<string, string> = {};
     const unit = (val: string) => {
       if (!val) return "";
       if (/^\d+$/.test(val)) return val + "px";
       return val;
     };
     const pushIf = (k: string, v: string, isUnit = false) => {
-      if (v) s.push(`${k}:${isUnit ? unit(v) : v}`);
+      if (v) styles[k] = isUnit ? unit(v) : v;
     };
 
     pushIf("display", css.display);
@@ -303,6 +376,7 @@ function EmailComposerContent() {
     }
     pushIf("width", css.width, true);
     pushIf("height", css.height, true);
+    pushIf("text-align", css.textAlign);
     pushIf("padding-top", css.pt, true);
     pushIf("padding-right", css.pr, true);
     pushIf("padding-bottom", css.pb, true);
@@ -311,10 +385,13 @@ function EmailComposerContent() {
     pushIf("margin-right", css.mr, true);
     pushIf("margin-bottom", css.mb, true);
     pushIf("margin-left", css.ml, true);
-    pushIf("border-top-left-radius", css.rtl, true);
-    pushIf("border-top-right-radius", css.rtr, true);
-    pushIf("border-bottom-right-radius", css.rbr, true);
-    pushIf("border-bottom-left-radius", css.rbl, true);
+    pushIf("border-radius", css.radius, true);
+    if (!css.radius) {
+      pushIf("border-top-left-radius", css.rtl, true);
+      pushIf("border-top-right-radius", css.rtr, true);
+      pushIf("border-bottom-right-radius", css.rbr, true);
+      pushIf("border-bottom-left-radius", css.rbl, true);
+    }
     pushIf("border-top-width", css.btw, true);
     pushIf("border-right-width", css.brw, true);
     pushIf("border-bottom-width", css.bbw, true);
@@ -337,7 +414,19 @@ function EmailComposerContent() {
     pushIf("font-family", css.ff);
     pushIf("font-size", css.fs, true);
     pushIf("font-weight", css.fw);
-    const styleStr = s.join(";");
+    css.custom
+      .split(";")
+      .map((rule) => rule.trim())
+      .filter(Boolean)
+      .forEach((rule) => {
+        const idx = rule.indexOf(":");
+        if (idx > -1) {
+          styles[rule.slice(0, idx).trim()] = rule.slice(idx + 1).trim();
+        }
+      });
+    const styleStr = Object.entries(styles)
+      .map(([k, v]) => `${k}:${v}`)
+      .join(";");
     const sel = window.getSelection();
     if (!sel?.rangeCount) return;
     if (isWrap) {
@@ -349,17 +438,11 @@ function EmailComposerContent() {
         notify.error("Context matrix limited.");
       }
     } else {
-      let n: Node | null = sel.anchorNode;
-      while (n && n !== editorRef.current) {
-        if (
-          n.nodeType === 1 &&
-          BLOCK_TAGS.includes((n as HTMLElement).tagName)
-        ) {
-          (n as HTMLElement).setAttribute("style", styleStr);
-          break;
-        }
-        n = n.parentNode;
-      }
+      const el = getSelectedEditableElement();
+      if (!el) return notify.error("Select an element first.");
+      Object.entries(styles).forEach(([property, value]) => {
+        el.style.setProperty(property, value);
+      });
     }
     syncToIframe();
   };
@@ -537,8 +620,16 @@ function EmailComposerContent() {
                   <button
                     onClick={() => applyMatrixCss(false)}
                     className="size-8 rounded bg-emerald-500 text-black hover:bg-emerald-400 flex items-center justify-center transition-all mt-1 shadow-lg shadow-emerald-500/30"
+                    title="Apply CSS to selected element"
                   >
                     <Zap size={14} />
+                  </button>
+                  <button
+                    onClick={resetCssPanel}
+                    className="size-8 rounded bg-zinc-900 text-zinc-500 hover:bg-white/10 hover:text-white flex items-center justify-center transition-all border border-white/5"
+                    title="Reset CSS panel"
+                  >
+                    <RotateCcw size={13} />
                   </button>
                 </div>
                 <div className="flex-1 px-3 border-l border-white/10 py-1 overflow-y-auto custom-scrollbar no-scrollbar scroll-smooth">
@@ -546,7 +637,14 @@ function EmailComposerContent() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 animate-in slide-in-from-top-1">
                       <CssSel
                         label="Display Style"
-                        options={["block", "flex", "grid", "inline-block"]}
+                        options={[
+                          "",
+                          "block",
+                          "inline",
+                          "inline-block",
+                          "flex",
+                          "grid",
+                        ]}
                         value={css.display}
                         onChange={(v) => setCss({ ...css, display: v })}
                       />
@@ -590,6 +688,26 @@ function EmailComposerContent() {
                         value={css.gap}
                         onChange={(v) => setCss({ ...css, gap: v })}
                       />
+                      <CssSel
+                        label="Text Align"
+                        options={["", "left", "center", "right", "justify"]}
+                        value={css.textAlign}
+                        onChange={(v) => setCss({ ...css, textAlign: v })}
+                      />
+                      <div className="col-span-2 lg:col-span-4 grid grid-cols-3 gap-2">
+                        <PresetBtn
+                          label="Text Center"
+                          onClick={() => setCenterPreset("text")}
+                        />
+                        <PresetBtn
+                          label="Self Center"
+                          onClick={() => setCenterPreset("self")}
+                        />
+                        <PresetBtn
+                          label="Children Center"
+                          onClick={() => setCenterPreset("children")}
+                        />
+                      </div>
                     </div>
                   )}
                   {activeTab === "spacing" && (
@@ -660,102 +778,141 @@ function EmailComposerContent() {
                   )}
                   {activeTab === "surface" && (
                     <div className="grid grid-cols-2 gap-x-10 gap-y-5 animate-in slide-in-from-top-1 pb-4">
-                      <div className="grid grid-cols-4 gap-2.5 border border-white/5 p-3.5 rounded-xl bg-white/5">
-                        <CssInp
-                          label="Border T"
-                          placeholder="1"
-                          value={css.btw}
-                          onChange={(v) => setCss({ ...css, btw: v })}
-                        />
-                        <div className="flex flex-col gap-1 items-center justify-center">
-                          <label className="text-[6px] uppercase font-black text-zinc-600">
-                            T
-                          </label>
-                          <button
-                            onClick={() =>
-                              setActivePicker(
-                                activePicker === "btc" ? null : "btc",
-                              )
-                            }
-                            className="size-6 rounded border border-white/10"
-                            style={{ background: css.btc || "#111" }}
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-4 gap-2.5 border border-white/5 p-3.5 rounded-xl bg-white/5">
+                          <CssInp
+                            label="Border T"
+                            placeholder="1"
+                            value={css.btw}
+                            onChange={(v) => setCss({ ...css, btw: v })}
                           />
-                        </div>
-                        <CssInp
-                          label="Border R"
-                          placeholder="1"
-                          value={css.brw}
-                          onChange={(v) => setCss({ ...css, brw: v })}
-                        />
-                        <div className="flex flex-col gap-1 items-center justify-center">
-                          <label className="text-[6px] uppercase font-black text-zinc-600">
-                            R
-                          </label>
-                          <button
-                            onClick={() =>
-                              setActivePicker(
-                                activePicker === "brc" ? null : "brc",
-                              )
-                            }
-                            className="size-6 rounded border border-white/10"
-                            style={{ background: css.brc || "#111" }}
+                          <div className="flex flex-col gap-1 items-center justify-center">
+                            <label className="text-[6px] uppercase font-black text-zinc-600">
+                              T
+                            </label>
+                            <button
+                              onClick={() =>
+                                setActivePicker(
+                                  activePicker === "btc" ? null : "btc",
+                                )
+                              }
+                              className="size-6 rounded border border-white/10"
+                              style={{ background: css.btc || "#111" }}
+                            />
+                          </div>
+                          <CssInp
+                            label="Border R"
+                            placeholder="1"
+                            value={css.brw}
+                            onChange={(v) => setCss({ ...css, brw: v })}
                           />
-                        </div>
-                        <CssInp
-                          label="Border B"
-                          placeholder="1"
-                          value={css.bbw}
-                          onChange={(v) => setCss({ ...css, bbw: v })}
-                        />
-                        <div className="flex flex-col gap-1 items-center justify-center">
-                          <label className="text-[6px] uppercase font-black text-zinc-600">
-                            B
-                          </label>
-                          <button
-                            onClick={() =>
-                              setActivePicker(
-                                activePicker === "bbc" ? null : "bbc",
-                              )
-                            }
-                            className="size-6 rounded border border-white/10"
-                            style={{ background: css.bbc || "#111" }}
+                          <div className="flex flex-col gap-1 items-center justify-center">
+                            <label className="text-[6px] uppercase font-black text-zinc-600">
+                              R
+                            </label>
+                            <button
+                              onClick={() =>
+                                setActivePicker(
+                                  activePicker === "brc" ? null : "brc",
+                                )
+                              }
+                              className="size-6 rounded border border-white/10"
+                              style={{ background: css.brc || "#111" }}
+                            />
+                          </div>
+                          <CssInp
+                            label="Border B"
+                            placeholder="1"
+                            value={css.bbw}
+                            onChange={(v) => setCss({ ...css, bbw: v })}
                           />
-                        </div>
-                        <CssInp
-                          label="Border L"
-                          placeholder="1"
-                          value={css.blw}
-                          onChange={(v) => setCss({ ...css, blw: v })}
-                        />
-                        <div className="flex flex-col gap-1 items-center justify-center">
-                          <label className="text-[6px] uppercase font-black text-zinc-600">
-                            L
-                          </label>
-                          <button
-                            onClick={() =>
-                              setActivePicker(
-                                activePicker === "blc" ? null : "blc",
-                              )
-                            }
-                            className="size-6 rounded border border-white/10"
-                            style={{ background: css.blc || "#111" }}
+                          <div className="flex flex-col gap-1 items-center justify-center">
+                            <label className="text-[6px] uppercase font-black text-zinc-600">
+                              B
+                            </label>
+                            <button
+                              onClick={() =>
+                                setActivePicker(
+                                  activePicker === "bbc" ? null : "bbc",
+                                )
+                              }
+                              className="size-6 rounded border border-white/10"
+                              style={{ background: css.bbc || "#111" }}
+                            />
+                          </div>
+                          <CssInp
+                            label="Border L"
+                            placeholder="1"
+                            value={css.blw}
+                            onChange={(v) => setCss({ ...css, blw: v })}
                           />
+                          <div className="flex flex-col gap-1 items-center justify-center">
+                            <label className="text-[6px] uppercase font-black text-zinc-600">
+                              L
+                            </label>
+                            <button
+                              onClick={() =>
+                                setActivePicker(
+                                  activePicker === "blc" ? null : "blc",
+                                )
+                              }
+                              className="size-6 rounded border border-white/10"
+                              style={{ background: css.blc || "#111" }}
+                            />
+                          </div>
+                          {activePicker &&
+                            ["btc", "brc", "bbc", "blc"].includes(
+                              activePicker as string,
+                            ) && (
+                              <div className="absolute z-300 top-24 left-32">
+                                <ColorPic
+                                  colors={colors}
+                                  onSelect={(c) => {
+                                    const k = activePicker as any;
+                                    setCss({ ...css, [k]: c });
+                                    setActivePicker(null);
+                                  }}
+                                />
+                              </div>
+                            )}
                         </div>
-                        {activePicker &&
-                          ["btc", "brc", "bbc", "blc"].includes(
-                            activePicker as string,
-                          ) && (
-                            <div className="absolute z-300 top-24 left-32">
-                              <ColorPic
-                                colors={colors}
-                                onSelect={(c) => {
-                                  const k = activePicker as any;
-                                  setCss({ ...css, [k]: c });
-                                  setActivePicker(null);
-                                }}
-                              />
-                            </div>
-                          )}
+                        <div className="space-y-3">
+                          <label className="text-[7.5px] font-black text-emerald-500 uppercase px-1">
+                            Border Radius Matrix
+                          </label>
+                          <CssInp
+                            label="All Radius"
+                            placeholder="8"
+                            value={css.radius}
+                            onChange={setRadiusAll}
+                          />
+                          <div className="grid grid-cols-4 gap-2">
+                            <CssInp
+                              label="T-L"
+                              placeholder="0"
+                              value={css.rtl}
+                              onChange={(v) => setCss({ ...css, rtl: v })}
+                            />
+                            <CssInp
+                              label="T-R"
+                              placeholder="0"
+                              value={css.rtr}
+                              onChange={(v) => setCss({ ...css, rtr: v })}
+                            />
+                            <CssInp
+                              label="B-R"
+                              placeholder="0"
+                              value={css.rbr}
+                              onChange={(v) => setCss({ ...css, rbr: v })}
+                            />
+                            <CssInp
+                              label="B-L"
+                              placeholder="0"
+                              value={css.rbl}
+                              onChange={(v) => setCss({ ...css, rbl: v })}
+                            />
+                          </div>
+                        </div>
                       </div>
                       <div className="space-y-4">
                         <div className="relative pt-1">
@@ -790,6 +947,18 @@ function EmailComposerContent() {
                           className="w-full bg-zinc-800 text-zinc-400 py-3 rounded-xl text-[9px] font-black uppercase border border-white/5 hover:text-white transition-all shadow-xl"
                         >
                           Engage Wrap
+                        </button>
+                        <button
+                          onClick={resetSelectedElementStyle}
+                          className="w-full bg-red-500/10 text-red-300 py-3 rounded-xl text-[9px] font-black uppercase border border-red-500/20 hover:bg-red-500 hover:text-white transition-all shadow-xl"
+                        >
+                          Reset Selected Element
+                        </button>
+                        <button
+                          onClick={resetCssPanel}
+                          className="w-full bg-zinc-950 text-zinc-500 py-3 rounded-xl text-[9px] font-black uppercase border border-white/5 hover:text-white transition-all"
+                        >
+                          Reset CSS Panel
                         </button>
                       </div>
                     </div>
@@ -866,7 +1035,7 @@ function EmailComposerContent() {
             </div>
           </div>
           <div className="bg-zinc-900/40 border border-white/5 p-5 rounded-[1.2rem] flex items-center justify-end text-zinc-700 italic text-[11px] leading-relaxed">
-            "{enquiryMessage}"
+            &quot;{enquiryMessage}&quot;
           </div>
         </div>
 
@@ -1181,6 +1350,23 @@ function TabSlim({
 
 function Separator() {
   return <div className="w-px h-5 bg-zinc-950 mx-1.5" />;
+}
+
+function PresetBtn({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="bg-zinc-900 text-zinc-500 py-2 rounded-lg text-[8px] font-black uppercase border border-white/5 hover:bg-emerald-500 hover:text-black transition-all"
+    >
+      {label}
+    </button>
+  );
 }
 
 function ColorPic({

@@ -10,14 +10,6 @@ const nextConfig = {
       },
     ],
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:5000/api/:path*', // Assuming external backend or for proxy use
-      },
-    ];
-  },
 };
 
 export default nextConfig;

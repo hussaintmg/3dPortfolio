@@ -4,27 +4,30 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Mail,
-  Lock,
   ArrowRight,
-  Sparkles,
   ShieldCheck,
-  Eye,
-  EyeOff,
   Loader2,
 } from "lucide-react";
 import { gsap } from "gsap";
 import { notify } from "@/lib/notify";
 import axios from "axios";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import FloatingInput from "@/Components/ui/FloatingInput";
+import EditableText from "@/Components/editable/EditableText";
+import PasskeyButton from "@/Components/auth/PasskeyButton";
+import { useSite } from "@/context/SiteContext";
+import { Construction } from "lucide-react";
 
 function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { settings } = useSite();
+  const underMaintenance = searchParams?.get("maintenance") === "1";
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +50,8 @@ function LoginContent() {
         notify.success(res.data.message || "Access Granted", {
           description: res.data.desc || "Session initialized successfully.",
         });
-        router.push("/dashboard");
+        // Clients land in their portal, staff in the dashboard
+        router.push(res.data.user?.role === "user" ? "/portal" : "/dashboard");
       } else {
         notify.error(res.data.message || "Access Denied", {
           description: res.data.desc || "Session terminated.",
@@ -72,69 +76,55 @@ function LoginContent() {
 
       <div ref={cardRef} className="w-full max-w-md relative z-10 opacity-0">
         <div className="bg-card/50 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-accent/5">
+          {underMaintenance && (
+            <div className="mb-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
+              <Construction size={17} className="text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-widest text-amber-400">
+                  Site under maintenance
+                </p>
+                <p className="text-xs text-gray-300 font-medium mt-1 leading-relaxed">
+                  {settings.maintenanceMessage ||
+                    "We're putting the finishing touches on something great."}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="text-center space-y-4 mb-10">
             <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent">
-              <ShieldCheck size={12} /> Secure Protocol
+              <ShieldCheck size={12} />
+              <EditableText k="login.badge">Secure Protocol</EditableText>
             </div>
             <h1 className="text-4xl font-black text-white tracking-tighter">
-              Verify{" "}
+              <EditableText k="login.heading.pre">Verify</EditableText>{" "}
               <span className="italic text-transparent bg-clip-text bg-linear-to-r from-accent to-purple-400">
-                Identity.
+                <EditableText k="login.heading.highlight">Identity.</EditableText>
               </span>
             </h1>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">
-                Username / Email
-              </label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors">
-                  <Mail size={18} />
-                </div>
-                <input
-                  type="text"
-                  required
-                  placeholder="name@nexus.sh"
-                  className="w-full bg-background/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-gray-600"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+            <FloatingInput
+              label="Username / Email"
+              type="text"
+              required
+              icon={<Mail size={18} />}
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+            />
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-center ml-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                  Password
-                </label>
-              </div>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors">
-                  <Lock size={18} />
-                </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  placeholder="••••••••"
-                  className="w-full bg-background/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-gray-600"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-accent transition-colors"
-                >
-                  {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-                </button>
-              </div>
-            </div>
+            <FloatingInput
+              label="Password"
+              type="password"
+              required
+              value={formData.password}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+            />
             <Link
               href="/forgot-password"
               title="Initialize recovery protocol"
@@ -159,6 +149,10 @@ function LoginContent() {
               )}
             </button>
           </form>
+
+          <div className="mt-7">
+            <PasskeyButton />
+          </div>
 
           <p className="text-center mt-10 text-xs text-gray-500">
             Don't have an Account?{" "}

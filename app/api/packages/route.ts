@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 export async function GET() {
   try {
     await dbConnect();
-    const packages = await Package.find().sort({ createdAt: -1 });
+    const packages = await Package.find().sort({ order: 1, createdAt: -1 });
     return NextResponse.json({ success: true, packages });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

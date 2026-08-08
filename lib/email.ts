@@ -9,6 +9,35 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+/**
+ * Sends a template-rendered email, optionally with a generated PDF attached.
+ * Used by the document/template system in the dashboard.
+ */
+export async function sendTemplatedEmail(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  attachment?: { filename: string; content: Buffer };
+  replyTo?: string;
+}) {
+  return transporter.sendMail({
+    from: `"${webData.websiteName}" <${process.env.EMAIL_USER}>`,
+    to: opts.to,
+    replyTo: opts.replyTo,
+    subject: opts.subject,
+    html: opts.html,
+    attachments: opts.attachment
+      ? [
+          {
+            filename: opts.attachment.filename,
+            content: opts.attachment.content,
+            contentType: "application/pdf",
+          },
+        ]
+      : undefined,
+  });
+}
+
 export async function sendEnquiryEmail(
   name: string,
   email: string,
@@ -207,7 +236,7 @@ export async function adminApprovedEmail(email: string, username: string) {
                     <p style="margin: 0 0 20px 0; color: #666666; font-size: 16px;">We are pleased to inform you that your application for a position on our administrative team has been accepted. Your dashboard access is now fully authorized.</p>
                     
                     <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0; border-radius: 8px;">
-                      <p style="margin: 0; color: #065f46; font-size: 14px;"><strong>Next Steps:</strong> You can now log in to the Genesis Portal using your registered email and password to access the administrative dashboard.</p>
+                      <p style="margin: 0; color: #065f46; font-size: 14px;"><strong>Next Steps:</strong> You can now log in to the ${webData.websiteName} Portal using your registered email and password to access the administrative dashboard.</p>
                     </div>
                     
                     <div style="text-align: center; margin: 40px 0;">

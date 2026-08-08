@@ -8,6 +8,11 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
+// Expose for debugging/E2E tests in dev only
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+  (window as any).ScrollTrigger = ScrollTrigger;
+}
+
 export default function LenisProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const lenis = new Lenis({

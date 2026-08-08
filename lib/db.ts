@@ -1,4 +1,13 @@
 import mongoose from "mongoose";
+import dns from "dns";
+
+// Windows dev machines sometimes fail mongodb+srv DNS lookups
+// (querySrv ECONNREFUSED). Opt-in fix via .env.local; never set on Vercel.
+if (process.env.MONGODB_DNS_FIX === "true") {
+  try {
+    dns.setServers(["8.8.8.8", "1.1.1.1"]);
+  } catch {}
+}
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 

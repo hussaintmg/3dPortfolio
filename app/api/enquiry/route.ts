@@ -5,9 +5,15 @@ import { sendEnquiryEmail } from "@/lib/email";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { getUserById } from "@/lib/userHelper";
+import { guardRate } from "@/lib/rateLimit";
+import { raiseNotification } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   try {
+    // Spam protection: 5 enquiries/hour per IP
+    const limited = guardRate(req, "enquiry", 5, 60 * 60_000);
+    if (limited) return limited;
+
     await dbConnect();
     const { name, email, message } = await req.json();
 
@@ -33,6 +39,16 @@ export async function POST(req: Request) {
     } catch (e) {
         console.error("Email notification failed, but enquiry was saved.");
     }
+
+    // In-app dashboard notification (non-blocking)
+    try {
+      await raiseNotification({
+        type: "enquiry",
+        title: `New enquiry from ${name}`,
+        body: String(message || "").slice(0, 120),
+        link: "/dashboard/enquiries",
+      });
+    } catch {}
 
     return NextResponse.json({
       success: true,

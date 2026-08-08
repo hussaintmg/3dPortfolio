@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 import { findUser, setVerificationCode } from "@/lib/userHelper";
 import { signToken } from "@/lib/auth";
 import { forgotCodeEmail } from "@/lib/email";
+import { guardRate } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    // Email-abuse protection: 3 recovery requests / 15 min per IP
+    const limited = guardRate(req, "forgot", 3, 15 * 60_000);
+    if (limited) return limited;
+
     const { identifier } = await req.json();
 
     if (!identifier) {

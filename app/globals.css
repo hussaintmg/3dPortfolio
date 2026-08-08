@@ -11,6 +11,162 @@
 
   --font-sans: var(--font-inter);
   --font-heading: var(--font-poppins);
+
+  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+  --animate-orb-float: orb-float 7s ease-in-out infinite;
+}
+
+/*
+ * Editor-driven entrance animations.
+ * An element with [data-anim] starts hidden and plays its keyframes once the
+ * reveal hook adds .anim-play. Duration/delay/easing come from CSS vars.
+ */
+[data-anim] {
+  opacity: 0;
+  will-change: opacity, transform, filter;
+}
+
+[data-anim].anim-play {
+  animation-name: var(--anim-name, anim-fade-in);
+  animation-duration: var(--anim-dur, 700ms);
+  animation-delay: var(--anim-delay, 0ms);
+  animation-timing-function: var(--anim-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  animation-fill-mode: both;
+}
+
+/* Anyone who prefers less motion just gets the content, immediately */
+@media (prefers-reduced-motion: reduce) {
+  [data-anim] {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+}
+
+@keyframes anim-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes anim-fade-up {
+  from { opacity: 0; transform: translateY(34px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes anim-fade-down {
+  from { opacity: 0; transform: translateY(-34px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes anim-fade-left {
+  from { opacity: 0; transform: translateX(-44px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes anim-fade-right {
+  from { opacity: 0; transform: translateX(44px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes anim-zoom-in {
+  from { opacity: 0; transform: scale(0.86); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes anim-zoom-out {
+  from { opacity: 0; transform: scale(1.14); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes anim-flip-up {
+  from { opacity: 0; transform: perspective(900px) rotateX(28deg) translateY(30px); }
+  to { opacity: 1; transform: perspective(900px) rotateX(0) translateY(0); }
+}
+@keyframes anim-blur-in {
+  from { opacity: 0; filter: blur(14px); transform: scale(1.03); }
+  to { opacity: 1; filter: blur(0); transform: scale(1); }
+}
+@keyframes anim-rise {
+  from { opacity: 0; transform: translateY(70px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Gentle drift for the CSS orb that stands in for the WebGL sphere */
+@keyframes orb-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-18px) scale(1.03);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+/*
+ * Invoice printing: "Download PDF" calls window.print(), so the printed
+ * sheet must be just the invoice — on white paper, in black ink.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #invoice-sheet,
+  #invoice-sheet * {
+    visibility: visible;
+  }
+
+  #invoice-sheet {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    width: 100%;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  #invoice-sheet * {
+    color: #111 !important;
+    border-color: #ddd !important;
+    background-color: transparent !important;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+}
+
+/* Smooth entrance for the lazily-loaded 3D background */
+@keyframes scene-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.scene-fade-in {
+  animation: scene-fade-in 1.1s ease-out forwards;
+}
+
+/*
+ * Hero entrance fallback: elements start hidden and ALWAYS become visible via
+ * CSS after ~0.9s even if JS/GSAP never runs (production safety net).
+ * When GSAP hydrates in time it removes .hero-fallback and takes over.
+ */
+@keyframes hero-fade-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-fallback {
+  opacity: 0;
+  transform: translateY(40px);
+  animation: hero-fade-up 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  /* stagger via --hero-i set per element */
+  animation-delay: calc(0.9s + var(--hero-i, 0) * 0.12s);
 }
 
 :root {

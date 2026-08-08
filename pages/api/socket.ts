@@ -47,7 +47,7 @@ export default function SocketHandler(req: NextApiRequest, res: NextApiResponseW
     // Handle chat messages
     socket.on('send_message', (data) => {
         const { receiverId, message, senderId, createdAt, packageContext } = data;
-        
+
         // Emit to the specific receiver's room
         io.to(receiverId).emit('receive_message', {
             senderId,
@@ -57,6 +57,25 @@ export default function SocketHandler(req: NextApiRequest, res: NextApiResponseW
         });
 
         console.log(`Message from ${senderId} to ${receiverId}: ${message}`);
+    });
+
+    // ── New conversation-based chat relay ──────────────────────────────
+    // Rooms: `conv:<conversationId>` (both sides of a thread) and `staff`
+    // (dashboard inbox). The DB write happens via /api/chat first — the
+    // sender then relays the saved message here for realtime delivery.
+    socket.on('chat:join', (rooms: string[]) => {
+      (Array.isArray(rooms) ? rooms : [rooms]).forEach((r) => socket.join(String(r)));
+    });
+
+    socket.on('chat:new', (msg: any) => {
+      if (!msg?.conversationId) return;
+      socket.to(`conv:${msg.conversationId}`).emit('chat:new', msg);
+      socket.to('staff').emit('chat:inbox', msg);
+    });
+
+    socket.on('chat:delete', (payload: any) => {
+      if (!payload?.conversationId) return;
+      socket.to(`conv:${payload.conversationId}`).emit('chat:delete', payload);
     });
     
     socket.on('disconnect', () => {

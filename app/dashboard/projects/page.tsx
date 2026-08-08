@@ -20,10 +20,17 @@ import {
 } from "lucide-react";
 import { gsap } from "gsap";
 import axios from "axios";
+import { notify } from "@/lib/notify";
+import { Skeleton, SkeletonRow, SkeletonCard } from "@/Components/ui/Skeleton";
+import FloatingInput from "@/Components/ui/FloatingInput";
+import FloatingTextarea from "@/Components/ui/FloatingTextarea";
 
 interface ProjectMedia {
   url: string;
-  type: "image" | "video";
+  name?: string;
+  size?: number;
+  type: string;
+  storageKey?: string;
 }
 
 interface Project {
@@ -33,7 +40,7 @@ interface Project {
   technologies: string[];
   liveLink: string;
   githubLink: string;
-  media: ProjectMedia[];
+  media: ProjectMedia;//media is an object not array
   createdAt: string;
 }
 
@@ -51,10 +58,13 @@ export default function DashboardProjects() {
     technologies: [] as string[],
     liveLink: "",
     githubLink: "",
-    media: [] as ProjectMedia[],
+    media: null as ProjectMedia | null,
   });
 
   const [techInput, setTechInput] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
 
   const fetchProjects = async () => {
     try {
@@ -106,30 +116,69 @@ export default function DashboardProjects() {
     });
   };
 
-  const handleMediaUpload = () => {
-    const url = prompt("Enter Image/Video URL for Cloudinary Simulation:");
-    if (url) {
-      const type = url.includes("mp4") ? "video" : "image";
-      setFormData({
-        ...formData,
-        media: [...formData.media, { url, type } as ProjectMedia],
-      });
-    }
+  const handleMediaUpload = (file: File) => {
+    setImageFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsUploading(true);
+      let mediaData = formData.media;
+
+      if (imageFile) {
+        // check image size with env variable
+        const maxSizeMB = Number(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_IN_MB) || 5;
+        if (imageFile.size > 1024 * 1024 * maxSizeMB) {
+          throw new Error(`Image size must be less than ${maxSizeMB}MB`);
+        }
+        // Upload to Supabase via server API proxy
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", imageFile);
+        formDataUpload.append("folder", "projects");
+
+        const uploadResResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formDataUpload,
+        });
+        const uploadRes = await uploadResResponse.json();
+
+        if (uploadRes.success) {
+          mediaData = {
+            url: uploadRes.publicUrl || "",
+            name: imageFile.name,
+            size: imageFile.size,
+            type: (uploadRes.fileType || "").startsWith("video") ? "video" : "image",
+            storageKey: uploadRes.filePath || "",
+          };
+        } else {
+          throw new Error("Image upload failed: " + (uploadRes.error || "Unknown error"));
+        }
+      }
+
+      if (!mediaData && !editingProject) {
+        throw new Error("Please upload a representative image.");
+      }
+
+      const finalData = {
+        ...formData,
+        media: mediaData,
+      };
+
       if (editingProject) {
-        await axios.put(`/api/projects/${editingProject._id}`, formData);
+        await axios.put(`/api/projects/${editingProject._id}`, finalData);
       } else {
-        await axios.post("/api/projects", formData);
+        await axios.post("/api/projects", finalData);
       }
       setIsModalOpen(false);
       fetchProjects();
       resetForm();
-    } catch (err) {
-      console.error(err);
+      notify.success(editingProject ? "Project updated" : "Project created");
+    } catch (err: any) {
+      notify.error("Save failed", err.message);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -140,9 +189,10 @@ export default function DashboardProjects() {
       technologies: [],
       liveLink: "",
       githubLink: "",
-      media: [],
+      media: null,
     });
-    setEditingProject(null);
+    setImageFile(null);
+    setPreviewUrl("");
   };
 
   const openEditModal = (p: Project) => {
@@ -153,9 +203,10 @@ export default function DashboardProjects() {
       technologies: [...p.technologies],
       liveLink: p.liveLink,
       githubLink: p.githubLink,
-      media: [...p.media],
+      media: p.media,
     });
     setIsModalOpen(true);
+    setPreviewUrl(p.media?.url || "");
   };
 
   const handleDelete = async (id: string) => {
@@ -170,8 +221,26 @@ export default function DashboardProjects() {
 
   if (loading)
     return (
-      <div className="flex h-[80vh] items-center justify-center p-4">
-        <Loader2 className="animate-spin text-[#6366F1]" size={48} />
+      <div className="min-h-screen p-6 sm:p-10">
+        <div className="max-w-7xl mx-auto space-y-16">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-72" />
+              <Skeleton className="h-4 w-96" />
+            </div>
+            <Skeleton className="h-14 w-44 rounded-xl" />
+          </div>
+          <div className="hidden lg:block rounded-3xl border border-white/10 bg-card overflow-hidden">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonRow key={i} cols={4} />
+            ))}
+          </div>
+          <div className="lg:hidden grid grid-cols-1 gap-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
       </div>
     );
 
@@ -181,7 +250,7 @@ export default function DashboardProjects() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16 dash-item">
           <div className="space-y-2">
             <h1 className="text-3xl lg:text-4xl font-bold text-white tracking-tight flex items-center gap-4">
-              <div className="size-12 rounded-xl bg-[#111827] flex items-center justify-center text-[#6366F1] border border-white/10 shadow-sm">
+              <div className="size-12 rounded-xl bg-card flex items-center justify-center text-[#6366F1] border border-white/10 shadow-sm">
                   <FolderOpen size={24} />
               </div>
               Portfolio Assets
@@ -200,7 +269,7 @@ export default function DashboardProjects() {
         </header>
 
         {/* Dynamic Table/Cards */}
-        <div className="hidden lg:block overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-xl dash-item">
+        <div className="hidden lg:block overflow-hidden rounded-3xl border border-white/10 bg-card shadow-xl dash-item">
           <table className="w-full text-left">
             <thead className="bg-[#0A0A0A] border-b border-white/5">
               <tr>
@@ -219,15 +288,15 @@ export default function DashboardProjects() {
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-5">
                       <div className="size-16 rounded-xl overflow-hidden border border-white/10 bg-[#0A0A0A] shadow-sm relative group-hover:border-[#6366F1]/50 transition-colors shrink-0">
-                        {p.media[0]?.type === "image" ? (
-                          <img
-                            src={p.media[0].url}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          />
-                        ) : (
+                        {p.media?.type?.startsWith("video") ? (
                           <div className="w-full h-full flex items-center justify-center text-[#6366F1]">
                             <VideoIcon size={24} />
                           </div>
+                        ) : (
+                          <img
+                            src={p.media?.url}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
                         )}
                       </div>
                       <div>
@@ -305,21 +374,21 @@ export default function DashboardProjects() {
           {projects.map((p) => (
             <div
               key={p._id}
-              className="rounded-3xl border border-white/10 bg-[#111827] p-6 shadow-xl dash-item"
+              className="rounded-3xl border border-white/10 bg-card p-6 shadow-xl dash-item"
             >
               <div className="aspect-video mb-6 rounded-2xl overflow-hidden border border-white/10 bg-[#0A0A0A] relative">
-                {p.media[0]?.type === "image" ? (
-                  <img
-                    src={p.media[0].url}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
+                {p.media?.type?.startsWith("video") ? (
                   <div className="w-full h-full text-[#6366F1] flex items-center justify-center">
                     <VideoIcon size={32} />
                   </div>
+                ) : (
+                  <img
+                    src={p.media?.url}
+                    className="w-full h-full object-cover"
+                  />
                 )}
                 <div className="absolute top-3 right-3 flex gap-2">
-                    {p.liveLink && <div className="size-8 rounded-lg bg-[#111827]/80 backdrop-blur-md shadow-md flex items-center justify-center text-white border border-white/10"><ExternalLink size={14} /></div>}
+                    {p.liveLink && <div className="size-8 rounded-lg bg-card/80 backdrop-blur-md shadow-md flex items-center justify-center text-white border border-white/10"><ExternalLink size={14} /></div>}
                 </div>
               </div>
               <h3 className="text-xl font-bold text-white tracking-tight mb-3">{p.title}</h3>
@@ -349,13 +418,13 @@ export default function DashboardProjects() {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
           <div
             className="fixed inset-0 bg-[#0A0A0A]/80 backdrop-blur-md"
             onClick={() => setIsModalOpen(false)}
           />
           <div
-            className="relative w-full max-w-4xl bg-[#111827] rounded-3xl border border-white/10 p-6 sm:p-10 shadow-2xl my-auto"
+            className="relative w-full max-w-4xl bg-card rounded-3xl border border-white/10 p-6 sm:p-10 shadow-2xl my-auto"
           >
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
@@ -372,41 +441,27 @@ export default function DashboardProjects() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={handleSubmit} data-lenis-prevent className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
+                  <FloatingInput
+                    label="Project Title"
+                    type="text"
+                    required
+                    value={formData.title}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
+                  />
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">
-                      Designation
-                    </label>
-                    <input
+                    <FloatingInput
+                      label="Tech Stack (press Enter to add)"
                       type="text"
-                      required
-                      className="w-full bg-[#0A0A0A] border border-white/5 rounded-xl px-4 py-3.5 outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1] transition-all font-medium text-sm text-white placeholder:text-gray-600"
-                      value={formData.title}
-                      onChange={(e) =>
-                        setFormData({ ...formData, title: e.target.value })
-                      }
-                      placeholder="e.g. Next-Gen Financial Engine"
+                      icon={<Code size={18} />}
+                      value={techInput}
+                      onChange={(e) => setTechInput(e.target.value)}
+                      onKeyDown={addTech}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">
-                      Tech Stack (Enter)
-                    </label>
-                    <div className="relative">
-                        <input
-                          type="text"
-                          className="w-full bg-[#0A0A0A] border border-white/5 rounded-xl pr-10 pl-4 py-3.5 outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1] transition-all font-medium text-sm text-white placeholder:text-gray-600"
-                          value={techInput}
-                          onChange={(e) => setTechInput(e.target.value)}
-                          onKeyDown={addTech}
-                          placeholder="React, Graphql..."
-                        />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
-                            <Code size={18} />
-                        </div>
-                    </div>
                     <div className="flex flex-wrap gap-2 pt-2">
                       {formData.technologies.map((t) => (
                         <span
@@ -422,123 +477,91 @@ export default function DashboardProjects() {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">
-                        Live URL
-                      </label>
-                      <div className="relative">
-                          <input
-                          type="url"
-                          className="w-full bg-[#0A0A0A] border border-white/5 rounded-xl pr-10 pl-4 py-3.5 text-sm font-medium focus:border-[#6366F1] outline-none transition-all text-white placeholder:text-gray-600"
-                          value={formData.liveLink}
-                          onChange={(e) =>
-                              setFormData({
-                              ...formData,
-                              liveLink: e.target.value,
-                              })
-                          }
-                          placeholder="https://live.deploy"
-                          />
-                          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
-                              <Monitor size={16} />
-                          </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">
-                        Source
-                      </label>
-                      <div className="relative">
-                          <input
-                          type="url"
-                          className="w-full bg-[#0A0A0A] border border-white/5 rounded-xl pr-10 pl-4 py-3.5 text-sm font-medium focus:border-[#6366F1] outline-none transition-all text-white placeholder:text-gray-600"
-                          value={formData.githubLink}
-                          onChange={(e) =>
-                              setFormData({
-                              ...formData,
-                              githubLink: e.target.value,
-                              })
-                          }
-                          placeholder="https://github.com/src"
-                          />
-                          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
-                              <Github size={16} />
-                          </div>
-                      </div>
-                    </div>
+                    <FloatingInput
+                      label="Live URL"
+                      type="url"
+                      icon={<Monitor size={16} />}
+                      value={formData.liveLink}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          liveLink: e.target.value,
+                        })
+                      }
+                    />
+                    <FloatingInput
+                      label="GitHub / Source URL"
+                      type="url"
+                      icon={<Github size={16} />}
+                      value={formData.githubLink}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          githubLink: e.target.value,
+                        })
+                      }
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-6">
-                  <div className="space-y-2 h-full flex flex-col">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">
-                      Documentation
-                    </label>
-                    <textarea
-                      required
-                      className="w-full flex-1 min-h-[150px] bg-[#0A0A0A] border border-white/5 rounded-2xl px-5 py-4 outline-none focus:border-[#6366F1] transition-all resize-none font-medium text-sm text-white placeholder:text-gray-600"
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="Comprehensive project details..."
-                    />
-                  </div>
+                  <FloatingTextarea
+                    label="Project Description"
+                    required
+                    rows={8}
+                    containerClassName="h-full"
+                    className="h-full min-h-[190px]"
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        description: e.target.value,
+                      })
+                    }
+                  />
                 </div>
               </div>
 
               {/* Media Section */}
               <div className="pt-8 border-t border-white/5">
-                <div className="flex justify-between items-center mb-6">
+                  <div className="flex justify-between items-center mb-6">
                   <div className="space-y-1">
                       <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                       Visual Pipeline
                       </h3>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleMediaUpload}
-                    className="rounded-xl bg-white/5 text-white border border-white/10 px-6 py-2.5 text-xs font-bold hover:bg-white/10 transition-all flex items-center gap-2"
-                  >
+                  <label className="rounded-xl bg-white/5 text-white border border-white/10 px-6 py-2.5 text-xs font-bold hover:bg-white/10 transition-all flex items-center gap-2 cursor-pointer">
                     <ImageIcon size={14} />
                     Inject Asset
-                  </button>
+                    <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleMediaUpload(e.target.files[0])} />
+                  </label>
                 </div>
                 
-                {formData.media.length > 0 ? (
+                {previewUrl ? (
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                      {formData.media.map((m, idx) => (
-                      <div
-                          key={idx}
-                          className="relative group aspect-video rounded-xl overflow-hidden border border-white/10 bg-[#0A0A0A]"
-                      >
-                          {m.type === "video" ? (
+                      <div className="relative group aspect-video rounded-xl overflow-hidden border border-white/10 bg-[#0A0A0A]">
+                          {imageFile?.type.startsWith("video") || formData.media?.type?.startsWith("video") ? (
                           <div className="w-full h-full flex items-center justify-center text-gray-500 group-hover:text-[#6366F1] transition-colors">
                               <VideoIcon size={32} />
                           </div>
                           ) : (
                           <img
-                              src={m.url}
+                              src={previewUrl}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           )}
                           <button
                           type="button"
-                          onClick={() =>
-                              setFormData({
-                              ...formData,
-                              media: formData.media.filter((_, i) => i !== idx),
-                              })
-                          }
+                          onClick={() => {
+                            setFormData({ ...formData, media: null });
+                            setImageFile(null);
+                            setPreviewUrl("");
+                          }}
                           className="absolute top-2 right-2 size-8 bg-black/60 backdrop-blur-md text-red-400 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100"
                           >
                           <Trash size={14} />
                           </button>
                       </div>
-                      ))}
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-white/10 bg-[#0A0A0A]/50 p-10 text-center">
@@ -549,10 +572,12 @@ export default function DashboardProjects() {
               </div>
 
               <div className="pt-2">
-                  <button
+                   <button
                   type="submit"
-                  className="w-full bg-[#6366F1] py-4 rounded-xl font-bold text-sm text-white hover:bg-indigo-600 transition-all shadow-lg shadow-[#6366F1]/20 active:scale-[0.98]"
+                  disabled={isUploading}
+                  className="w-full bg-[#6366F1] disabled:bg-indigo-300 py-4 rounded-xl font-bold text-sm text-white hover:bg-indigo-600 transition-all shadow-lg shadow-[#6366F1]/20 active:scale-[0.98] flex items-center justify-center gap-2"
                   >
+                  {isUploading && <Loader2 className="animate-spin" size={18} />}
                   {editingProject
                       ? "Sync Operational Data"
                       : "Dispatch Deployment"}

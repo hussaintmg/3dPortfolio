@@ -95,7 +95,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Comms Link</p>
-                      <p className="text-sm font-bold tracking-tight text-white group-hover:text-indigo-400 transition-colors">hello@genesis-portal.dev</p>
+                      <p className="text-sm font-bold tracking-tight text-white group-hover:text-indigo-400 transition-colors">hello@dombec-portal.dev</p>
                   </div>
               </div>
               <div className="flex items-center gap-4 text-gray-400 hover:text-indigo-400 transition-colors cursor-pointer group w-max">

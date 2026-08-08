@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongoose";
 import Subscriber from "@/models/Subscriber";
+import { guardRate } from "@/lib/rateLimit";
+import { raiseNotification } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   try {
+    // Spam protection: 3 subscriptions/hour per IP
+    const limited = guardRate(req, "subscribe", 3, 60 * 60_000);
+    if (limited) return limited;
+
     await dbConnect();
     const { email } = await req.json();
 
@@ -20,6 +26,16 @@ export async function POST(req: Request) {
     }
 
     await Subscriber.create({ email });
+
+    // In-app dashboard notification (non-blocking)
+    try {
+      await raiseNotification({
+        type: "subscriber",
+        title: "New newsletter subscriber",
+        body: email,
+        link: "/dashboard",
+      });
+    } catch {}
 
     return NextResponse.json({ success: true, message: "Successfully subscribed" });
   } catch (error: any) {
