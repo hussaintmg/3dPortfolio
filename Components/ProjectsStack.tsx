@@ -118,29 +118,56 @@ export default function ProjectsStack() {
           // @ts-ignore
           const { isMobile } = context.conditions;
 
-          // 1. Initial State for Cards
+          /**
+           * Resting position for the card sitting `slot` places back in the
+           * deck. Slot 0 is the one being read; everything behind it is a
+           * fixed, uniform stack rather than a progressive fade — a card is
+           * either the one you're looking at or part of the deck, never
+           * half-way between the two.
+           */
+          const restingAt = (slot: number, rot: number) => {
+            const depth = Math.min(slot, 3);
+            return {
+              rotation: slot === 0 ? 0 : rot * 0.5,
+              x: depth * (isMobile ? 7 : 11),
+              y: depth * (isMobile ? 10 : 16),
+              scale: slot === 0 ? 1 : 1 - depth * 0.045,
+              opacity: slot === 0 ? 1 : slot > 3 ? 0 : 0.55,
+              zIndex: projects.length - slot,
+            };
+          };
+
+          // 1. Initial state
           cardsRef.current.forEach((card, i) => {
             if (!card || !projects[i]) return;
-            gsap.set(card, {
-              rotation: projects[i].rot,
-              x: i * (isMobile ? 8 : 12),
-              y: i * (isMobile ? 12 : 20),
-              scale: 1 - i * 0.05,
-              opacity: 1 - i * 0.15,
-            });
+            gsap.set(card, restingAt(i, projects[i].rot));
           });
 
-          // 2. ScrollTrigger Timeline
+          const steps = projects.length - 1;
+
+          // 2. ScrollTrigger timeline.
+          //    `snap` is the important part: when scrolling stops, the deck
+          //    settles on a WHOLE card instead of resting mid-transition with
+          //    two cards half-faded over each other.
           const tl = gsap.timeline({
             scrollTrigger: {
               trigger: containerRef.current,
               start: "top top",
-              end: `+=${projects.length * 100}%`,
+              end: `+=${Math.max(1, steps) * 100}%`,
               pin: pinRef.current,
-              scrub: 1,
+              scrub: 0.8,
               anticipatePin: 1,
               invalidateOnRefresh: true,
               fastScrollEnd: true,
+              snap:
+                steps > 0
+                  ? {
+                      snapTo: 1 / steps,
+                      duration: { min: 0.25, max: 0.55 },
+                      delay: 0.05,
+                      ease: "power2.inOut",
+                    }
+                  : undefined,
               // Pins are created when data loads (order varies) — priority
               // keeps refresh math in DOCUMENT order so the section below
               // gets offset by this pin's spacing correctly.
@@ -148,55 +175,39 @@ export default function ProjectsStack() {
             },
           });
 
-          // 3. Card Animation Sequence
-          for (let i = 0; i < projects.length - 1; i++) {
-            tl.to(cardsRef.current[i], {
-              rotation: 0,
-              x: 0,
-              y: 0,
-              scale: 1.05,
-              opacity: 1,
-              duration: 0.4,
-              ease: "power2.out",
-            }).to(
+          // 3. One step per card. Every card moves at the same moment and
+          //    over the same duration, so the deck advances as a single unit.
+          for (let i = 0; i < steps; i++) {
+            const label = `step-${i}`;
+            tl.addLabel(label);
+
+            // The card you've finished with leaves upward, out of the way
+            tl.to(
               cardsRef.current[i],
               {
+                y: isMobile ? -70 : -110,
+                scale: 1.04,
                 opacity: 0,
-                scale: 1.2,
-                y: -30,
-                duration: 0.8,
-                ease: "power2.inOut",
+                rotation: projects[i].rot * 0.4,
+                duration: 1,
+                ease: "power2.in",
               },
-              "+=0.2",
+              label,
             );
 
+            // …while everything behind it advances exactly one slot
             for (let j = i + 1; j < projects.length; j++) {
-              const newPos = j - i - 1;
               tl.to(
                 cardsRef.current[j],
                 {
-                  rotation: projects[j].rot * (newPos === 0 ? 1 : 0.6),
-                  x: newPos * (isMobile ? 8 : 12),
-                  y: newPos * (isMobile ? 12 : 20),
-                  scale: 1 - newPos * 0.05,
-                  opacity: 1 - newPos * 0.15,
-                  duration: 0.8,
+                  ...restingAt(j - i - 1, projects[j].rot),
+                  duration: 1,
                   ease: "power2.inOut",
                 },
-                "<",
+                label,
               );
             }
           }
-
-          tl.to(cardsRef.current[projects.length - 1], {
-            rotation: 0,
-            x: 0,
-            y: 0,
-            scale: 1.05,
-            opacity: 1,
-            duration: 0.5,
-            ease: "power3.out",
-          });
 
           return () => {};
         },
@@ -209,13 +220,33 @@ export default function ProjectsStack() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [solutions, loading]);
 
-  // Force ScrollTrigger refresh on window resize for layout stability
+  /**
+   * Re-measure after a resize settles.
+   *
+   * Debounced on purpose: a drag-resize fires this continuously, and
+   * refreshing on every pixel makes the pinned deck jump. Mobile browsers
+   * also fire `resize` when the URL bar hides, which is not a real layout
+   * change, so width is compared rather than trusted blindly.
+   */
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let lastWidth = window.innerWidth;
+
     const handleResize = () => {
-      ScrollTrigger.refresh();
+      const width = window.innerWidth;
+      const heightOnly = width === lastWidth;
+      lastWidth = width;
+      clearTimeout(timer);
+      timer = setTimeout(() => ScrollTrigger.refresh(), heightOnly ? 400 : 150);
     };
+
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
   }, []);
 
   return (

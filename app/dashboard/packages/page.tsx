@@ -19,7 +19,9 @@ import {
   Filter,
   ChevronDown,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
+import CustomPackageComposer from "@/Components/dashboard/CustomPackageComposer";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
@@ -48,6 +50,7 @@ export default function DashboardPackages() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
   const [editingPkg, setEditingPkg] = useState<Package | null>(null);
 
   // Bulk selection
@@ -249,7 +252,7 @@ export default function DashboardPackages() {
       <div className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
           <div className="space-y-2">
-            <h1 className="text-4xl lg:text-5xl font-black text-gray-900 tracking-tighter flex items-center gap-4">
+            <h1 className="text-2xl sm:text-3xl lg:text-5xl font-black text-gray-900 tracking-tighter flex items-center gap-4">
               <div className="size-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-accent border border-indigo-100">
                   <Package size={26} />
               </div>
@@ -257,17 +260,32 @@ export default function DashboardPackages() {
             </h1>
             <p className="text-gray-500 font-medium">Control pricing strategy and structural service delivery.</p>
           </div>
-          <button
-            onClick={() => {
-              resetForm();
-              setIsModalOpen(true);
-            }}
-            className="flex items-center justify-center gap-3 bg-gray-900 hover:bg-black text-white font-black text-xs py-4.5 px-10 rounded-2xl transition-all shadow-xl shadow-gray-900/10 active:scale-95 uppercase tracking-widest"
-          >
-            <Plus size={20} />
-            Initialize Package
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => setCustomOpen(true)}
+              className="flex items-center justify-center gap-2.5 bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 font-black text-xs py-4 px-7 rounded-2xl transition-all active:scale-95 uppercase tracking-widest cursor-pointer"
+            >
+              <Sparkles size={17} />
+              Custom for a client
+            </button>
+            <button
+              onClick={() => {
+                resetForm();
+                setIsModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-3 bg-gray-900 hover:bg-black text-white font-black text-xs py-4 px-8 rounded-2xl transition-all shadow-xl shadow-gray-900/10 active:scale-95 uppercase tracking-widest cursor-pointer"
+            >
+              <Plus size={20} />
+              Initialize Package
+            </button>
+          </div>
         </header>
+
+        <CustomPackageComposer
+          open={customOpen}
+          onClose={() => setCustomOpen(false)}
+          onSent={fetchPackages}
+        />
 
         {/* Bulk Actions */}
         <AnimatePresence>

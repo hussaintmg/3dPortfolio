@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import dbConnect from "@/lib/mongoose";
 import ChatMessage from "@/models/ChatMessage";
 import { raiseNotification } from "@/lib/notifications";
+import { maybeAutoReply } from "@/lib/ai/autoReply";
 import User from "@/models/User";
 import { verifyToken } from "@/lib/auth";
 import { deleteFileFromSupabase } from "@/lib/supabase";
@@ -156,18 +157,34 @@ export async function POST(req: Request) {
     });
 
     // Notify the dashboard when a CLIENT writes (non-blocking)
+    let aiReply: any = null;
     if (!isStaff(user)) {
       try {
         await raiseNotification({
           type: "chat",
           title: `New chat message from ${user.username || "a client"}`,
           body: type === "text" ? String(text).slice(0, 120) : `Sent a ${type}`,
-          link: "/dashboard/chat",
+          entityId: threadId,
         });
+      } catch {}
+
+      // The assistant answers only while nobody from the studio is watching;
+      // every guard for that lives in maybeAutoReply. A failure here must
+      // never turn into a failed send for the client.
+      try {
+        const outcome = await maybeAutoReply(threadId!);
+        if (outcome.replied) {
+          aiReply = await ChatMessage.findOne({
+            conversationId: threadId,
+            isAi: true,
+          })
+            .sort({ createdAt: -1 })
+            .lean();
+        }
       } catch {}
     }
 
-    return NextResponse.json({ success: true, message });
+    return NextResponse.json({ success: true, message, aiReply });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }

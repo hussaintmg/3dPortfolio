@@ -29,6 +29,12 @@ const ChatMessageSchema = new mongoose.Schema(
       mime: { type: String },
       storageKey: { type: String },
     },
+    /**
+     * Written by the assistant rather than a person. Shown with a badge so a
+     * client is never misled about who they are talking to.
+     */
+    isAi: { type: Boolean, default: false },
+    aiProvider: { type: String, default: "" },
     /** User ids that chose "delete for me" (message hidden for them only). */
     deletedFor: [{ type: String }],
     /** User ids that have seen the message. */

@@ -31,6 +31,7 @@ import {
   FileText,
   Braces,
   CreditCard,
+  Bot,
 } from "lucide-react";
 import {
   userDashboardLinks,
@@ -61,6 +62,7 @@ const iconMap = {
   FileText: <FileText size={18} />,
   Braces: <Braces size={18} />,
   CreditCard: <CreditCard size={18} />,
+  Bot: <Bot size={18} />,
 };
 
 interface SidebarLink {

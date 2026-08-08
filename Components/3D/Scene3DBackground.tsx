@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { Scene3DHandle } from "@/Components/3D/Scene3D";
+import { markSceneReady } from "@/hooks/useBootStatus";
 
 /**
  * three.js lives behind this boundary only. Keeping the import here (rather
@@ -20,32 +21,14 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
-/** Pure-CSS stand-in shown until the real sphere is rendering. */
-function OrbPlaceholder({ visible }: { visible: boolean }) {
-  return (
-    <div
-      aria-hidden
-      className="absolute inset-0 pointer-events-none flex items-center justify-center lg:justify-end lg:pr-[12%]"
-      style={{
-        opacity: visible ? 1 : 0,
-        transition: "opacity 700ms ease-out",
-      }}
-    >
-      <div className="relative size-[300px] lg:size-[420px]">
-        <div className="absolute inset-0 rounded-full blur-[2px] animate-orb-float bg-[radial-gradient(circle_at_32%_28%,rgba(190,205,255,0.55),rgba(79,102,220,0.42)_38%,rgba(24,32,72,0.55)_66%,rgba(8,10,25,0.65)_100%)]" />
-        <div className="absolute inset-0 rounded-full blur-[70px] opacity-70 bg-[radial-gradient(circle,rgba(99,102,241,0.5),transparent_70%)]" />
-        <div className="absolute -inset-10 rounded-full blur-[110px] opacity-50 bg-[radial-gradient(circle,rgba(56,90,220,0.35),transparent_72%)]" />
-      </div>
-    </div>
-  );
-}
-
 /**
  * Fixed 3D layer for the home page.
  *
  * Mounted from the root layout so it survives the page's loading skeleton.
- * A CSS orb stands in immediately; the WebGL sphere crossfades over it once
- * its chunk and HDR environment are ready.
+ * There is deliberately no CSS stand-in any more: showing a flat orb and then
+ * swapping it for the real sphere read as two different shapes. The loading
+ * curtain covers this layer instead, and lifts once the renderer has actually
+ * produced frames — so the first sphere anyone sees is the real one.
  */
 export default function Scene3DBackground() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,11 +42,18 @@ export default function Scene3DBackground() {
     const el = containerRef.current;
     if (!el) return;
     let raf = 0;
+    // Two frames of grace after the canvas appears, so the curtain never
+    // lifts onto a half-drawn first frame.
+    let settle = 0;
     const check = () => {
       const canvas = el.querySelector("canvas");
       if (canvas && canvas.width > 0) {
-        setSceneReady(true);
-        return;
+        settle += 1;
+        if (settle >= 3) {
+          setSceneReady(true);
+          markSceneReady();
+          return;
+        }
       }
       raf = requestAnimationFrame(check);
     };
@@ -192,7 +182,6 @@ export default function Scene3DBackground() {
         transition: "opacity 900ms cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
-      <OrbPlaceholder visible={!sceneReady} />
       <div
         style={{
           position: "absolute",

@@ -25,6 +25,18 @@ export async function PATCH(
       await deleteFileFromSupabase(oldSolution.media.storageKey);
     }
 
+    // A cleared price field arrives as "" — store null so the solution drops
+    // off the packages page rather than being offered for zero.
+    if ("price" in updateData) {
+      updateData.price =
+        updateData.price === "" || updateData.price == null
+          ? null
+          : Number(updateData.price);
+    }
+    if (Array.isArray(updateData.features)) {
+      updateData.features = updateData.features.filter(Boolean);
+    }
+
     const solution = await ReadymadeSolution.findByIdAndUpdate(
       id,
       updateData,

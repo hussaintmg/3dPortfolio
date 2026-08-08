@@ -18,6 +18,10 @@ import {
   Download,
   MoreVertical,
   CheckCheck,
+  Play,
+  Languages,
+  Sparkles,
+  Bot,
 } from "lucide-react";
 import axios from "axios";
 import { notify } from "@/lib/notify";
@@ -25,6 +29,14 @@ import { getSocket } from "@/lib/socket-client";
 import { useAuth } from "@/context/AuthContext";
 import { Skeleton } from "@/Components/ui/Skeleton";
 import ConfirmationModal from "@/Components/dashboard/ConfirmationModal";
+import MediaViewer, { type MediaItem } from "@/Components/chat/MediaViewer";
+
+/** PDFs get the built-in reader; everything else stays a download. */
+const isPdf = (a?: { name?: string; mime?: string; url?: string }) =>
+  !!a &&
+  (a.mime === "application/pdf" ||
+    /\.pdf($|\?)/i.test(a.name || "") ||
+    /\.pdf($|\?)/i.test(a.url || ""));
 
 export interface ChatMsg {
   _id: string;
@@ -42,6 +54,8 @@ export interface ChatMsg {
     storageKey?: string;
   };
   createdAt: string;
+  /** Written by the assistant rather than a person. */
+  isAi?: boolean;
 }
 
 interface ChatThreadProps {
@@ -67,6 +81,100 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
   const [recordSecs, setRecordSecs] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; mode: "me" | "everyone" } | null>(null);
+  const [viewing, setViewing] = useState<MediaItem | null>(null);
+  /** Per-message translation/explanation, keyed by message id. */
+  const [aiNotes, setAiNotes] = useState<
+    Record<string, { mode: "translate" | "explain"; text: string; busy?: boolean }>
+  >({});
+  /** A translated version of what the owner is composing, pending approval. */
+  const [draft, setDraft] = useState<
+    { label: string; text: string; busy?: boolean } | null
+  >(null);
+
+  /** Every viewable attachment in the thread, so the viewer can page through. */
+  const mediaItems: MediaItem[] = messages.reduce<MediaItem[]>((acc, m) => {
+    const a = m.attachment;
+    if (!a?.url) return acc;
+    const kind: MediaItem["kind"] | null =
+      m.type === "image"
+        ? "image"
+        : m.type === "video"
+          ? "video"
+          : isPdf(a)
+            ? "pdf"
+            : null;
+    if (!kind) return acc;
+    acc.push({ url: a.url, name: a.name, mime: a.mime, size: a.size, kind });
+    return acc;
+  }, []);
+
+  const openMedia = (m: ChatMsg, kind: MediaItem["kind"]) => {
+    if (!m.attachment?.url) return;
+    setViewing({
+      url: m.attachment.url,
+      name: m.attachment.name,
+      mime: m.attachment.mime,
+      size: m.attachment.size,
+      kind,
+    });
+  };
+
+  /**
+   * Translate or explain one message. Staff-only — the endpoint refuses
+   * anyone else, and there is no reason to spend a client's goodwill (or the
+   * owner's API credits) on it.
+   */
+  const runAi = async (m: ChatMsg, mode: "translate" | "explain") => {
+    if (!m.text?.trim()) return;
+    setMenuFor(null);
+    setAiNotes((n) => ({ ...n, [m._id]: { mode, text: "", busy: true } }));
+    try {
+      const { data } = await axios.post("/api/ai/translate", {
+        text: m.text,
+        mode,
+      });
+      if (!data.success) throw new Error(data.message);
+      setAiNotes((n) => ({ ...n, [m._id]: { mode, text: data.result } }));
+    } catch (err: any) {
+      setAiNotes((n) => {
+        const next = { ...n };
+        delete next[m._id];
+        return next;
+      });
+      notify.error(
+        mode === "translate" ? "Could not translate" : "Could not explain",
+        err.response?.data?.message || err.message,
+      );
+    }
+  };
+
+  const LABELS: Record<string, string> = {
+    english: "English",
+    urdu: "Urdu",
+    "roman-urdu": "Roman Urdu",
+  };
+
+  /** Translates the composer's contents without sending anything. */
+  const translateDraft = async (target: "english" | "urdu" | "roman-urdu") => {
+    const source = text.trim();
+    if (!source) return;
+    setDraft({ label: LABELS[target], text: "", busy: true });
+    try {
+      const { data } = await axios.post("/api/ai/translate", {
+        text: source,
+        target,
+        mode: "translate",
+      });
+      if (!data.success) throw new Error(data.message);
+      setDraft({ label: LABELS[target], text: data.result });
+    } catch (err: any) {
+      setDraft(null);
+      notify.error(
+        "Could not translate",
+        err.response?.data?.message || err.message,
+      );
+    }
+  };
   const [deleting, setDeleting] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -113,6 +221,27 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
     return () => clearInterval(poll);
   }, [threadId, fetchMessages]);
 
+  /**
+   * Tell the server a human is watching.
+   *
+   * This is what stops the assistant from answering over the top of a live
+   * conversation: while this heartbeat is fresh, auto-reply stands down.
+   */
+  useEffect(() => {
+    if (!isStaff) return;
+    const beat = () => {
+      if (document.visibilityState === "hidden") return;
+      axios.post("/api/ai/settings").catch(() => {});
+    };
+    beat();
+    const id = setInterval(beat, 45000);
+    document.addEventListener("visibilitychange", beat);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", beat);
+    };
+  }, [isStaff]);
+
   // Realtime via socket.io (instant when the socket server is available)
   useEffect(() => {
     if (!threadId || !user) return;
@@ -143,11 +272,27 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
   }, [threadId, user, isStaff, scrollToBottom]);
 
   // Close message menus on outside click
+  /**
+   * Close the message menu when clicking elsewhere.
+   *
+   * Registered only while a menu is open, and only from the next tick: Next's
+   * React root is attached to `document`, so a listener added here shares the
+   * node with React's own delegated handler. Added up front it fires after
+   * the button's onClick and closes the menu in the same click that opened
+   * it — which is exactly what used to happen.
+   */
   useEffect(() => {
+    if (!menuFor) return;
     const close = () => setMenuFor(null);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, []);
+    const id = setTimeout(
+      () => document.addEventListener("click", close),
+      0,
+    );
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener("click", close);
+    };
+  }, [menuFor]);
 
   const pushMessage = (msg: ChatMsg) => {
     setMessages((prev) => [...prev, msg]);
@@ -318,8 +463,14 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                 <div className={`relative max-w-[85%] sm:max-w-[70%] ${own ? "order-1" : ""}`}>
                   {/* Sender label (only for staff viewing client, or client viewing staff) */}
                   {!own && (
-                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-600 mb-1 ml-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-600 mb-1 ml-3 flex items-center gap-1.5">
                       {m.senderRole === "user" ? m.senderName : "Hussain"}
+                      {/* Never let a client think a bot was the person */}
+                      {m.isAi && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-accent/15 border border-accent/25 text-accent">
+                          <Bot size={9} /> auto-reply
+                        </span>
+                      )}
                     </p>
                   )}
                   <div
@@ -335,24 +486,66 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                       </p>
                     )}
                     {m.type === "image" && m.attachment?.url && (
-                      <a href={m.attachment.url} target="_blank" rel="noopener noreferrer">
+                      <button
+                        type="button"
+                        onClick={() => openMedia(m, "image")}
+                        className="block cursor-zoom-in"
+                      >
                         <img
                           src={m.attachment.url}
                           alt={m.attachment.name || "image"}
                           className="max-h-72 w-auto object-cover"
                           loading="lazy"
                         />
-                      </a>
+                      </button>
                     )}
                     {m.type === "video" && m.attachment?.url && (
-                      <video src={m.attachment.url} controls className="max-h-72 w-full" preload="metadata" />
+                      <button
+                        type="button"
+                        onClick={() => openMedia(m, "video")}
+                        className="relative block w-full cursor-pointer group/vid"
+                      >
+                        <video
+                          src={m.attachment.url}
+                          className="max-h-72 w-full pointer-events-none"
+                          preload="metadata"
+                          muted
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover/vid:bg-black/40 transition-colors">
+                          <span className="size-12 rounded-full bg-black/70 border border-white/20 flex items-center justify-center text-white group-hover/vid:scale-110 transition-transform">
+                            <Play size={20} className="ml-0.5" />
+                          </span>
+                        </span>
+                      </button>
                     )}
                     {m.type === "audio" && m.attachment?.url && (
                       <div className="px-3 py-2.5 min-w-[240px]">
                         <audio src={m.attachment.url} controls className="w-full h-10" preload="metadata" />
                       </div>
                     )}
-                    {m.type === "file" && m.attachment?.url && (
+                    {m.type === "file" && m.attachment?.url && isPdf(m.attachment) ? (
+                      <button
+                        type="button"
+                        onClick={() => openMedia(m, "pdf")}
+                        className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${own ? "hover:bg-white/10" : "hover:bg-white/5"}`}
+                      >
+                        <div
+                          className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${own ? "bg-white/15" : "bg-red-500/15 text-red-400"}`}
+                        >
+                          <FileText size={18} />
+                        </div>
+                        <div className="min-w-0 text-left">
+                          <p className="text-xs font-bold truncate max-w-[180px]">
+                            {m.attachment.name || "Document.pdf"}
+                          </p>
+                          <p
+                            className={`text-[10px] font-medium ${own ? "text-white/70" : "text-gray-500"}`}
+                          >
+                            PDF · {fmtSize(m.attachment.size)} · tap to read
+                          </p>
+                        </div>
+                      </button>
+                    ) : m.type === "file" && m.attachment?.url ? (
                       <a
                         href={m.attachment.url}
                         target="_blank"
@@ -370,7 +563,7 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                         </div>
                         <Download size={15} className="shrink-0 opacity-60" />
                       </a>
-                    )}
+                    ) : null}
                   </div>
                   <p className={`text-[9px] font-bold text-gray-600 mt-1 ${own ? "text-right mr-2" : "ml-3"}`}>
                     {fmtTime(m.createdAt)}
@@ -397,6 +590,23 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                       >
                         <Trash2 size={13} /> Delete for me
                       </button>
+                      {/* Understanding a client's message is staff-only work */}
+                      {isStaff && m.type === "text" && !!m.text?.trim() && (
+                        <>
+                          <button
+                            onClick={() => runAi(m, "translate")}
+                            className="w-full text-left px-4 py-3 text-xs font-bold text-gray-300 hover:bg-white/5 flex items-center gap-2.5 border-t border-white/5"
+                          >
+                            <Languages size={13} /> Translate
+                          </button>
+                          <button
+                            onClick={() => runAi(m, "explain")}
+                            className="w-full text-left px-4 py-3 text-xs font-bold text-gray-300 hover:bg-white/5 flex items-center gap-2.5 border-t border-white/5"
+                          >
+                            <Sparkles size={13} /> Explain this
+                          </button>
+                        </>
+                      )}
                       {canDeleteEveryone && (
                         <button
                           onClick={() => { setMenuFor(null); setConfirmDelete({ id: m._id, mode: "everyone" }); }}
@@ -404,6 +614,61 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                         >
                           <Trash2 size={13} /> Delete for everyone
                         </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Translation / explanation, shown under the message it
+                      belongs to and never sent anywhere by itself. */}
+                  {aiNotes[m._id] && (
+                    <div
+                      className={`mt-2 rounded-2xl border border-accent/25 bg-accent/8 px-3.5 py-2.5 ${own ? "text-right" : ""}`}
+                    >
+                      <p className="text-[9px] font-black uppercase tracking-widest text-accent flex items-center gap-1.5 mb-1">
+                        {aiNotes[m._id].mode === "translate" ? (
+                          <Languages size={10} />
+                        ) : (
+                          <Sparkles size={10} />
+                        )}
+                        {aiNotes[m._id].mode === "translate"
+                          ? "Translation"
+                          : "What they mean"}
+                      </p>
+                      {aiNotes[m._id].busy ? (
+                        <span className="inline-flex items-center gap-2 text-[11px] text-gray-400 font-medium">
+                          <Loader2 size={11} className="animate-spin" /> Working…
+                        </span>
+                      ) : (
+                        <>
+                          <p className="text-[12px] text-gray-200 font-medium leading-relaxed whitespace-pre-wrap text-left">
+                            {aiNotes[m._id].text}
+                          </p>
+                          <div className="flex gap-3 mt-2 justify-start">
+                            <button
+                              onClick={() =>
+                                navigator.clipboard
+                                  ?.writeText(aiNotes[m._id].text)
+                                  .then(() => notify.success("Copied"))
+                                  .catch(() => {})
+                              }
+                              className="text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors cursor-pointer"
+                            >
+                              Copy
+                            </button>
+                            <button
+                              onClick={() =>
+                                setAiNotes((n) => {
+                                  const next = { ...n };
+                                  delete next[m._id];
+                                  return next;
+                                })
+                              }
+                              className="text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors cursor-pointer"
+                            >
+                              Hide
+                            </button>
+                          </div>
+                        </>
                       )}
                     </div>
                   )}
@@ -466,7 +731,7 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
               />
             </label>
 
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 space-y-2">
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -480,6 +745,67 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                 placeholder="Type a message…"
                 className="w-full max-h-32 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white font-medium outline-none focus:border-accent/50 transition-all resize-none custom-scrollbar placeholder:text-gray-600"
               />
+
+              {/* Draft translation: the owner reviews it and chooses to use
+                  it — nothing is ever auto-sent in a different language. */}
+              {isStaff && draft && (
+                <div className="rounded-2xl border border-accent/25 bg-accent/8 px-3.5 py-2.5 space-y-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-accent flex items-center gap-1.5">
+                    <Languages size={10} /> {draft.label}
+                  </p>
+                  {draft.busy ? (
+                    <span className="inline-flex items-center gap-2 text-[11px] text-gray-400 font-medium">
+                      <Loader2 size={11} className="animate-spin" /> Translating…
+                    </span>
+                  ) : (
+                    <>
+                      <p className="text-[12px] text-gray-100 font-medium leading-relaxed whitespace-pre-wrap">
+                        {draft.text}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setText(draft.text);
+                            setDraft(null);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-accent text-white text-[9px] font-black uppercase tracking-widest cursor-pointer"
+                        >
+                          Use this
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDraft(null)}
+                          className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-[9px] font-black uppercase tracking-widest cursor-pointer"
+                        >
+                          Discard
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {isStaff && !!text.trim() && !draft && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      ["english", "EN"],
+                      ["urdu", "اردو"],
+                      ["roman-urdu", "Roman"],
+                    ] as const
+                  ).map(([target, label]) => (
+                    <button
+                      key={target}
+                      type="button"
+                      onClick={() => translateDraft(target)}
+                      className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-500 hover:text-accent hover:border-accent/30 text-[9px] font-black uppercase tracking-widest transition-colors cursor-pointer"
+                    >
+                      → {label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {text.trim() ? (
@@ -519,6 +845,13 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
         onConfirm={doDelete}
         onClose={() => setConfirmDelete(null)}
         type="danger"
+      />
+
+      <MediaViewer
+        item={viewing}
+        items={mediaItems}
+        onNavigate={setViewing}
+        onClose={() => setViewing(null)}
       />
     </div>
   );

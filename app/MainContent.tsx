@@ -15,6 +15,7 @@ import { useNotify } from "@/hooks/useNotify";
  * home page's loading skeleton.
  */
 import Scene3DBackground from "../Components/3D/Scene3DBackground";
+import HomeLoader from "../Components/HomeLoader";
 
 export default function MainContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "";
@@ -34,6 +35,8 @@ export default function MainContent({ children }: { children: React.ReactNode })
       {/* Styling the owner applied to freely-picked elements (every visitor) */}
       <SelectorStyles />
       {isHome && <Scene3DBackground />}
+      {/* Curtain sits above the 3D layer and lifts when both are ready */}
+      {isHome && <HomeLoader />}
       {showNavAndFooter && <Navbar />}
       <main className="flex-1 overflow-x-hidden relative">
         {children}

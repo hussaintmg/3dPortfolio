@@ -28,6 +28,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { notify } from "@/lib/notify";
+import { markDataReady } from "@/hooks/useBootStatus";
 import StackedCardsHero from "@/Components/StackedCardsHero";
 import ProjectsStack from "@/Components/ProjectsStack";
 import EditableText from "@/Components/editable/EditableText";
@@ -218,7 +219,8 @@ export default function HomePage() {
   // ── Data ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     let alive = true;
-    axios
+
+    const projectsCall = axios
       .get("/api/projects")
       .then((res) => {
         if (alive && res.data.success) setProjects(res.data.projects || []);
@@ -226,7 +228,7 @@ export default function HomePage() {
       .catch(() => {})
       .finally(() => alive && setProjectsLoading(false));
 
-    axios
+    const servicesCall = axios
       .get("/api/services")
       .then((res) => {
         if (alive && res.data.success) setServices(res.data.services || []);
@@ -234,13 +236,18 @@ export default function HomePage() {
       .catch(() => {})
       .finally(() => alive && setServicesLoading(false));
 
-    axios
+    const packagesCall = axios
       .get("/api/packages")
       .then((res) => {
         if (alive && res.data.success) setPackages(res.data.packages || []);
       })
       .catch(() => {})
       .finally(() => alive && setPackagesLoading(false));
+
+    // The loading curtain waits on this, so it must settle even on failure
+    Promise.allSettled([projectsCall, servicesCall, packagesCall]).then(() => {
+      if (alive) markDataReady();
+    });
 
     return () => {
       alive = false;
@@ -394,39 +401,122 @@ export default function HomePage() {
     if (projectsLoading) return;
     if (!horizontalRef.current || !triggerRef.current) return;
 
+    const rail = horizontalRef.current;
+    const trigger = triggerRef.current;
+
+    /**
+     * Measured lazily and re-measured on every refresh, so changing the
+     * window width re-lays the rail out instead of leaving it scrolled to a
+     * distance that no longer exists.
+     */
+    const travel = () =>
+      Math.max(0, rail.scrollWidth - trigger.clientWidth);
+
+    /**
+     * Progress values that put a card flush against the left edge. Snapping
+     * to these is what makes the rail settle on a WHOLE card rather than
+     * stopping wherever the wheel happened to stop.
+     */
+    const cardStops = () => {
+      const distance = travel();
+      if (distance <= 0) return [0];
+      // Undo the rail's current translation so offsets are measured from its
+      // untransformed origin, whatever the scroll position happens to be.
+      const shift = Number(gsap.getProperty(rail, "x")) || 0;
+      const railLeft = rail.getBoundingClientRect().left - shift;
+      const stops = Array.from(rail.children).map((card) => {
+        const offset = (card as HTMLElement).getBoundingClientRect().left
+          - railLeft
+          - 32; // the rail's own px-8 gutter
+        return Math.min(1, Math.max(0, offset / distance));
+      });
+      // Always allow resting at the very end, and drop near-duplicates
+      return [...new Set([...stops, 1].map((v) => Math.round(v * 1000) / 1000))].sort(
+        (a, b) => a - b,
+      );
+    };
+
     const ctx = gsap.context(() => {
-      const totalWidth = horizontalRef.current!.scrollWidth;
-      const containerWidth = triggerRef.current!.clientWidth;
-      const scrollAmount = totalWidth - containerWidth;
+      if (travel() <= 0) return;
 
-      if (scrollAmount > 0) {
-        // (the 3D scroll-away tween lives inside Scene3DBackground so the
-        // #scene3d-container target is guaranteed to exist when it binds)
-        const hzAnim = gsap.to(horizontalRef.current, {
-          x: -scrollAmount,
-          ease: "none",
-        });
+      // (the 3D scroll-away tween lives inside Scene3DBackground so the
+      // #scene3d-container target is guaranteed to exist when it binds)
+      const hzAnim = gsap.to(rail, {
+        x: () => -travel(),
+        ease: "none",
+      });
 
-        ScrollTrigger.create({
-          trigger: triggerRef.current,
-          pin: true,
-          scrub: 0.5,
-          start: "top top",
-          end: () => `+=${scrollAmount}`,
-          invalidateOnRefresh: true,
-          anticipatePin: 1,
-          // Lower priority than the solutions stack pin above (see
-          // ProjectsStack) so refresh offsets this pin by that one's spacing.
-          refreshPriority: 1,
-          animation: hzAnim,
-        });
-      }
+      ScrollTrigger.create({
+        trigger,
+        pin: true,
+        scrub: 0.6,
+        start: "top top",
+        end: () => `+=${travel()}`,
+        invalidateOnRefresh: true,
+        anticipatePin: 1,
+        // Lower priority than the solutions stack pin above (see
+        // ProjectsStack) so refresh offsets this pin by that one's spacing.
+        refreshPriority: 1,
+        animation: hzAnim,
+        snap: {
+          snapTo: (value) => {
+            const stops = cardStops();
+            return stops.reduce(
+              (best, s) =>
+                Math.abs(s - value) < Math.abs(best - value) ? s : best,
+              stops[0],
+            );
+          },
+          duration: { min: 0.2, max: 0.6 },
+          delay: 0.06,
+          ease: "power2.inOut",
+        },
+      });
     }, containerRef);
+
+    /**
+     * A trackpad swipe or shift+wheel over the rail should move it sideways.
+     * The section is pinned, so "sideways" really means driving the page
+     * scroll — that keeps ScrollTrigger, the snap and the pin all in sync
+     * instead of fighting a second source of truth.
+     */
+    const onWheel = (e: WheelEvent) => {
+      const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (!horizontal || e.deltaX === 0) return;
+      const rect = trigger.getBoundingClientRect();
+      // Only while the section is actually the one pinned on screen
+      if (rect.top > 1 || rect.bottom < window.innerHeight - 1) return;
+      e.preventDefault();
+      window.scrollBy({ top: e.deltaX, behavior: "instant" as ScrollBehavior });
+    };
+    trigger.addEventListener("wheel", onWheel, { passive: false });
 
     ScrollTrigger.sort();
     ScrollTrigger.refresh();
-    return () => ctx.revert();
+    return () => {
+      trigger.removeEventListener("wheel", onWheel);
+      ctx.revert();
+    };
   }, [projectsLoading, projects.length]);
+
+  /** Re-measure the rails once a resize settles. */
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let lastWidth = typeof window === "undefined" ? 0 : window.innerWidth;
+    const onResize = () => {
+      const widthChanged = window.innerWidth !== lastWidth;
+      lastWidth = window.innerWidth;
+      clearTimeout(timer);
+      timer = setTimeout(() => ScrollTrigger.refresh(), widthChanged ? 150 : 400);
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, []);
 
   return (
     <main
@@ -715,7 +805,7 @@ export default function HomePage() {
             {Array.from({ length: 3 }).map((_, i) => (
               <SkeletonCard
                 key={i}
-                className="w-[85vw] md:w-[600px] h-[50vh] md:h-[400px] shrink-0"
+                className="w-[86vw] sm:w-[68vw] md:w-[560px] lg:w-[600px] h-[56vh] sm:h-[52vh] md:h-[400px] shrink-0"
               />
             ))}
           </div>
@@ -727,7 +817,7 @@ export default function HomePage() {
             {displayProjects.map((project) => (
               <div
                 key={project._id}
-                className="project-card w-[85vw] md:w-[600px] h-[50vh] md:h-[400px] rounded-3xl border border-white/10 overflow-hidden bg-slate-900 relative group shadow-2xl shrink-0"
+                className="project-card w-[86vw] sm:w-[68vw] md:w-[560px] lg:w-[600px] h-[56vh] sm:h-[52vh] md:h-[400px] rounded-3xl border border-white/10 overflow-hidden bg-slate-900 relative group shadow-2xl shrink-0"
               >
                 {project.media?.url && (
                   <img

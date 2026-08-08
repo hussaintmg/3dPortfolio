@@ -34,9 +34,24 @@ const fadeUp = {
   }),
 };
 
+/** A ready-made solution the owner has put a price on. */
+interface PricedSolution {
+  _id: string;
+  title: string;
+  technologies?: string[];
+  media?: { url: string };
+  price: number | null;
+  currency?: string;
+  deliveryNote?: string;
+  summary?: string;
+  features?: string[];
+}
+
 export default function PackagesPage() {
   const [packages, setPackages] = useState<Pkg[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pricedSolutions, setPricedSolutions] = useState<PricedSolution[]>([]);
+  const [solutionsLoading, setSolutionsLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -51,6 +66,21 @@ export default function PackagesPage() {
       })
       .catch(() => {})
       .finally(() => alive && setLoading(false));
+
+    // Only solutions with a price belong here — the rest stay portfolio-only
+    axios
+      .get("/api/readymade-solutions")
+      .then((res) => {
+        if (!alive || !res.data.success) return;
+        setPricedSolutions(
+          (res.data.solutions || []).filter(
+            (s: PricedSolution) => typeof s.price === "number" && s.price > 0,
+          ),
+        );
+      })
+      .catch(() => {})
+      .finally(() => alive && setSolutionsLoading(false));
+
     return () => {
       alive = false;
     };
@@ -242,6 +272,127 @@ export default function PackagesPage() {
               );
             })}
           </div>
+        )}
+
+        {/* Ready-made solutions that carry a price */}
+        {(solutionsLoading || pricedSolutions.length > 0) && (
+          <section className="space-y-8 pt-6">
+            <div className="text-center space-y-3">
+              <EditableText
+                k="packages.solutions.label"
+                as="p"
+                className="text-[10px] font-black text-accent uppercase tracking-[0.35em] block"
+              >
+                Off the shelf
+              </EditableText>
+              <EditableText
+                k="packages.solutions.heading"
+                as="h2"
+                className="text-3xl md:text-4xl font-black text-white tracking-tighter block"
+              >
+                Ready-made solutions
+              </EditableText>
+              <EditableText
+                k="packages.solutions.body"
+                as="p"
+                className="text-sm text-gray-400 font-medium max-w-xl mx-auto block"
+              >
+                Already built, already tested. Buy one as-is and skip the build
+                time entirely.
+              </EditableText>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              {solutionsLoading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-[26rem] rounded-[2rem]" />
+                  ))
+                : pricedSolutions.map((s, idx) => (
+                    <motion.div
+                      key={s._id}
+                      custom={idx}
+                      initial="hidden"
+                      whileInView="visible"
+                      viewport={{ once: true, margin: "-60px" }}
+                      variants={fadeUp}
+                      className="group relative flex flex-col rounded-[2rem] border border-white/8 bg-card overflow-hidden transition-all duration-500 hover:-translate-y-1.5 hover:border-accent/40"
+                    >
+                      <div className="relative h-44 overflow-hidden bg-slate-900">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={s.media?.url}
+                          alt={s.title}
+                          loading="lazy"
+                          className="w-full h-full object-cover opacity-60 group-hover:scale-105 group-hover:opacity-75 transition-all duration-700"
+                        />
+                        <div className="absolute inset-0 bg-linear-to-t from-card via-card/40 to-transparent" />
+                        {s.deliveryNote && (
+                          <span className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-200">
+                            {s.deliveryNote}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex-1 flex flex-col p-6 space-y-4">
+                        <div>
+                          <h3 className="text-lg font-black text-white tracking-tight">
+                            {s.title}
+                          </h3>
+                          {s.summary && (
+                            <p className="text-xs text-gray-400 font-medium mt-1.5 leading-relaxed line-clamp-2">
+                              {s.summary}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[11px] font-black text-gray-500 uppercase">
+                            {s.currency || "USD"}
+                          </span>
+                          <span className="text-4xl font-black text-white tracking-tighter">
+                            {s.price?.toLocaleString()}
+                          </span>
+                        </div>
+
+                        {!!s.features?.length && (
+                          <ul className="space-y-2 flex-1">
+                            {s.features.slice(0, 4).map((f) => (
+                              <li key={f} className="flex items-start gap-2.5">
+                                <div className="mt-0.5 size-3.5 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
+                                  <Check size={8} className="text-accent" />
+                                </div>
+                                <span className="text-[11px] font-medium text-gray-400">
+                                  {f}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {!!s.technologies?.length && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {s.technologies.slice(0, 4).map((t) => (
+                              <span
+                                key={t}
+                                className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-bold uppercase tracking-widest text-gray-500"
+                              >
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <Link
+                          href="/portal/chat"
+                          className="mt-auto w-full bg-white/5 hover:bg-accent border border-white/10 hover:border-accent text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+                        >
+                          Buy this <ArrowRight size={13} />
+                        </Link>
+                      </div>
+                    </motion.div>
+                  ))}
+            </div>
+          </section>
         )}
 
         {/* Custom quote strip */}

@@ -15,6 +15,18 @@ const ReadymadeSolutionSchema = new mongoose.Schema({
     type: { type: String },
     storageKey: { type: String }, // Public key or storage path in Supabase
   },
+  /**
+   * Optional commercial details. A solution with no price is portfolio-only
+   * and stays off the packages page; set one and it is offered for sale
+   * alongside the hand-built packages.
+   */
+  price: { type: Number, default: null },
+  currency: { type: String, default: "USD" },
+  /** "Delivered in 3 days", "one-off", whatever the owner wants to promise. */
+  deliveryNote: { type: String, default: "" },
+  summary: { type: String, default: "" },
+  /** Bullet points shown on the pricing card. */
+  features: [{ type: String }],
   createdAt: { type: Date, default: Date.now },
 });
 

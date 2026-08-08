@@ -17,7 +17,17 @@ export async function POST(req: Request) {
     await dbConnect();
     const data = await req.json();
     
-    const { title, technologies, colorConfig, media } = data;
+    const {
+      title,
+      technologies,
+      colorConfig,
+      media,
+      price,
+      currency,
+      deliveryNote,
+      summary,
+      features,
+    } = data;
 
     if (!media) {
       return NextResponse.json({ success: false, message: "Image is required" }, { status: 400 });
@@ -27,7 +37,13 @@ export async function POST(req: Request) {
       title,
       technologies,
       colorConfig,
-      media
+      media,
+      // An empty price means portfolio-only — it must stay null, not zero
+      price: price === "" || price == null ? null : Number(price),
+      currency: currency || "USD",
+      deliveryNote: deliveryNote || "",
+      summary: summary || "",
+      features: Array.isArray(features) ? features.filter(Boolean) : [],
     });
 
     return NextResponse.json({ success: true, data: solution, message: "Solution created successfully" });

@@ -145,6 +145,12 @@ export const ownerDashboardLinks = [
     dropdown: null,
   },
   {
+    name: "AI Providers",
+    url: "/dashboard/ai",
+    icon: "Bot",
+    dropdown: null,
+  },
+  {
     name: "Setting",
     url: "/dashboard/setting",
     icon: "Settings",

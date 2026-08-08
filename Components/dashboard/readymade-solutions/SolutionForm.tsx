@@ -21,6 +21,26 @@ export default function SolutionForm({ initialData, onSubmit, onClose, isLoading
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState(initialData?.media?.url || "");
   const [isUploading, setIsUploading] = useState(false);
+  // Commercial fields — optional, and only a price puts it on sale
+  const [price, setPrice] = useState(
+    initialData?.price == null ? "" : String(initialData.price),
+  );
+  const [currency, setCurrency] = useState(initialData?.currency || "USD");
+  const [deliveryNote, setDeliveryNote] = useState(initialData?.deliveryNote || "");
+  const [summary, setSummary] = useState(initialData?.summary || "");
+  const [featureInput, setFeatureInput] = useState("");
+  const [featureList, setFeatureList] = useState<string[]>(
+    initialData?.features || [],
+  );
+
+  const addFeature = () => {
+    const v = featureInput.trim();
+    if (!v || featureList.includes(v)) return;
+    setFeatureList((l) => [...l, v]);
+    setFeatureInput("");
+  };
+  const removeFeature = (v: string) =>
+    setFeatureList((l) => l.filter((f) => f !== v));
 
   const addTech = () => {
     if (techInput.trim() && !techList.includes(techInput.trim())) {
@@ -84,6 +104,12 @@ export default function SolutionForm({ initialData, onSubmit, onClose, isLoading
         technologies: techList,
         colorConfig,
         media: mediaData,
+        // Left blank = portfolio-only; the packages page skips it
+        price: price.trim() === "" ? null : Number(price),
+        currency,
+        deliveryNote,
+        summary,
+        features: featureList,
       };
 
       await onSubmit(finalData);
@@ -170,6 +196,85 @@ export default function SolutionForm({ initialData, onSubmit, onClose, isLoading
                     <span key={idx} className="px-3 py-1.5 bg-white/5 text-gray-300 rounded-lg text-[10px] font-bold border border-white/10 flex items-center gap-2 group hover:border-indigo-500/30 hover:text-indigo-400 transition-colors">
                       {t}
                       <X size={10} className="cursor-pointer opacity-50 group-hover:opacity-100" onClick={() => removeTech(t)} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Pricing (optional) ─────────────────────────────────── */}
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/2 p-4">
+                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Tag size={12} /> Pricing (optional)
+                </label>
+                <p className="text-[10px] text-gray-500 font-medium leading-relaxed">
+                  Leave the price empty to keep this portfolio-only. Set one
+                  and it appears on the packages page for sale.
+                </p>
+
+                <div className="flex gap-2">
+                  <FloatingInput
+                    label="Price"
+                    type="number"
+                    min={0}
+                    step="1"
+                    containerClassName="flex-1"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                  />
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="px-3 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-bold outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    {["USD", "PKR", "EUR", "GBP", "AED"].map((c) => (
+                      <option key={c} value={c} className="bg-[#0a0a0a]">
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <FloatingInput
+                  label="Delivery note (e.g. Ready in 3 days)"
+                  value={deliveryNote}
+                  onChange={(e) => setDeliveryNote(e.target.value)}
+                />
+                <FloatingInput
+                  label="One-line summary"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                />
+
+                <div className="flex gap-2">
+                  <FloatingInput
+                    label="What's included"
+                    containerClassName="flex-1"
+                    value={featureInput}
+                    onChange={(e) => setFeatureInput(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && (e.preventDefault(), addFeature())
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={addFeature}
+                    className="px-5 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 rounded-xl font-black text-[10px] tracking-widest transition-all active:scale-95 uppercase cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {featureList.map((f) => (
+                    <span
+                      key={f}
+                      className="px-3 py-1.5 bg-white/5 text-gray-300 rounded-lg text-[10px] font-bold border border-white/10 flex items-center gap-2 group"
+                    >
+                      {f}
+                      <X
+                        size={10}
+                        className="cursor-pointer opacity-50 group-hover:opacity-100"
+                        onClick={() => removeFeature(f)}
+                      />
                     </span>
                   ))}
                   {techList.length === 0 && <p className="text-gray-600 text-[10px] italic">No technologies defined.</p>}
