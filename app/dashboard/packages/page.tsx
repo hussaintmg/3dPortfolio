@@ -22,6 +22,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import CustomPackageComposer from "@/Components/dashboard/CustomPackageComposer";
+import PackageApprovals from "@/Components/dashboard/PackageApprovals";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
@@ -280,6 +281,9 @@ export default function DashboardPackages() {
             </button>
           </div>
         </header>
+
+        {/* Approvals first — a client can't pay until one of these is decided */}
+        <PackageApprovals />
 
         <CustomPackageComposer
           open={customOpen}

@@ -11,6 +11,7 @@ import {
   UserRound,
   Sparkles,
   Trash2,
+  Wand2,
 } from "lucide-react";
 import axios from "axios";
 import { notify } from "@/lib/notify";
@@ -57,8 +58,46 @@ export default function CustomPackageComposer({
   const [featureInput, setFeatureInput] = useState("");
   const [features, setFeatures] = useState<string[]>([]);
   const [alsoMessage, setAlsoMessage] = useState(true);
+  const [drafting, setDrafting] = useState(false);
+  const [brief, setBrief] = useState("");
+  const [reasoning, setReasoning] = useState("");
 
   useEffect(() => setMounted(true), []);
+
+  /**
+   * Let the assistant fill the form in.
+   *
+   * It only populates the fields — nothing is created or sent until the
+   * owner presses send, so a model can never commit a real price to a real
+   * client on its own.
+   */
+  const draftWithAi = async () => {
+    try {
+      setDrafting(true);
+      const { data } = await axios.post("/api/ai/package-draft", {
+        userId: userId || undefined,
+        brief,
+      });
+      if (!data.success) throw new Error(data.message);
+
+      const d = data.draft;
+      setName(d.name);
+      setDescription(d.description);
+      setPrice(String(d.price));
+      setDiscounted(d.discountedPrice ? String(d.discountedPrice) : "");
+      setDuration(d.duration);
+      setFeatures(d.features || []);
+      setReasoning(d.reasoning || "");
+      notify.success("Draft ready", "Check the numbers before sending");
+    } catch (err: any) {
+      notify.error(
+        "Could not draft it",
+        err.response?.data?.message || err.message,
+      );
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -188,6 +227,44 @@ export default function CustomPackageComposer({
               ))}
             </select>
           </label>
+
+          {/* ── Assistant draft ─────────────────────────────────────── */}
+          <div className="rounded-2xl border border-accent/25 bg-accent/5 p-4 space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-accent flex items-center gap-1.5">
+              <Wand2 size={11} /> Draft it for me
+            </p>
+            <p className="text-[10px] text-gray-500 font-medium leading-relaxed">
+              Reads your recent chat with this client and fills the form in.
+              Nothing is sent until you press send.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                value={brief}
+                onChange={(e) => setBrief(e.target.value)}
+                placeholder="Optional steer — e.g. 'landing page + CMS, tight budget'"
+                className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs outline-none focus:border-accent placeholder:text-gray-600"
+              />
+              <button
+                type="button"
+                onClick={draftWithAi}
+                disabled={drafting}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-accent hover:bg-accent-hover disabled:opacity-40 text-white text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer"
+              >
+                {drafting ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Wand2 size={13} />
+                )}
+                Draft
+              </button>
+            </div>
+            {reasoning && (
+              <p className="text-[11px] text-gray-400 font-medium leading-relaxed border-t border-white/8 pt-2.5">
+                <span className="text-accent font-black">Why this price: </span>
+                {reasoning}
+              </p>
+            )}
+          </div>
 
           <FloatingInput
             label="Package name"

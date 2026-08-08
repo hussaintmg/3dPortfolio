@@ -62,11 +62,30 @@ export async function PATCH(
         { returnDocument: "after" },
       );
 
-      if (invoice?.packageId) {
-        await PackageAssignment.updateMany(
-          { userId: invoice.userId, packageId: invoice.packageId },
+      /**
+       * Close out the assignment this invoice was raised for.
+       *
+       * Matched by invoice id first — a client can hold more than one
+       * assignment for the same package over time, and paying the latest
+       * must not retroactively mark an older one paid. The packageId match
+       * is only a fallback for invoices raised before assignments carried
+       * an invoice id.
+       */
+      if (invoice) {
+        const byInvoice = await PackageAssignment.updateMany(
+          { invoiceId: String(invoice._id) },
           { $set: { paid: true, paidAt: new Date(), status: "paid" } },
         );
+        if (byInvoice.modifiedCount === 0 && invoice.packageId) {
+          await PackageAssignment.updateMany(
+            {
+              userId: invoice.userId,
+              packageId: invoice.packageId,
+              paid: { $ne: true },
+            },
+            { $set: { paid: true, paidAt: new Date(), status: "paid" } },
+          );
+        }
       }
     }
 

@@ -65,11 +65,40 @@ export async function POST(req: Request) {
 
     const now = new Date();
     let best: { profile: any; distance: number } | null = null;
+    const candidates: { profile: any; distance: number }[] = [];
 
     for (const profile of profiles) {
       if (profile.lockedUntil && profile.lockedUntil > now) continue;
       const { distance } = matches(descriptor, profile.samples);
+      if (distance <= DEFAULT_THRESHOLD) candidates.push({ profile, distance });
       if (!best || distance < best.distance) best = { profile, distance };
+    }
+
+    /**
+     * One face, two accounts.
+     *
+     * Someone can legitimately hold a client account and a staff account.
+     * Silently signing them into whichever matched marginally better is a
+     * coin toss, so when several profiles match we hand the choice back
+     * rather than guessing.
+     */
+    if (!identifier && candidates.length > 1) {
+      const owners = await User.find({
+        _id: { $in: candidates.map((c) => c.profile.userId) },
+      })
+        .select("username email role")
+        .lean();
+
+      return NextResponse.json({
+        success: false,
+        needsChoice: true,
+        message: "This face is on more than one account — which one?",
+        accounts: (owners as any[]).map((u) => ({
+          username: u.username,
+          email: u.email,
+          role: u.role,
+        })),
+      });
     }
 
     if (!best) {

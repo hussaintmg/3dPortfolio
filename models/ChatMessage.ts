@@ -37,8 +37,39 @@ const ChatMessageSchema = new mongoose.Schema(
     aiProvider: { type: String, default: "" },
     /** User ids that chose "delete for me" (message hidden for them only). */
     deletedFor: [{ type: String }],
-    /** User ids that have seen the message. */
+    /**
+     * Tick states are derived from these three, in order:
+     *   stored           → one tick   (it reached the server)
+     *   deliveredTo      → two ticks  (their device has it)
+     *   readBy           → two blue   (they opened the thread)
+     */
+    deliveredTo: [{ type: String }],
     readBy: [{ type: String }],
+    /** Voice notes get their own state: played, not merely seen. */
+    heardBy: [{ type: String }],
+
+    /** Edited text keeps an "edited" marker rather than pretending. */
+    editedAt: { type: Date, default: null },
+
+    /**
+     * A snapshot of what is being replied to, not just its id — the original
+     * can be deleted, and a quote that vanishes is worse than no quote. The
+     * id is kept too so tapping the quote can jump to it.
+     */
+    replyTo: {
+      id: { type: String },
+      text: { type: String },
+      senderName: { type: String },
+      type: { type: String },
+    },
+
+    reactions: [
+      {
+        userId: { type: String, required: true },
+        emoji: { type: String, required: true },
+        at: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true },
 );

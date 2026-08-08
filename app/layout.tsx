@@ -156,9 +156,16 @@ export async function generateMetadata(): Promise<Metadata> {
         "max-video-preview": -1,
       },
     },
-    ...(s?.faviconUrl
-      ? { icons: { icon: s.faviconUrl, shortcut: s.faviconUrl } }
-      : {}),
+    /**
+     * The uploaded app icon is the best artwork we have, so it drives the
+     * tab and home-screen icons too. Only the favicon was being applied
+     * before, which is why uploading an app icon appeared to do nothing.
+     */
+    icons: {
+      icon: s?.faviconUrl || s?.appIconUrl || "/icons/icon-192.png",
+      shortcut: s?.faviconUrl || s?.appIconUrl || "/icons/icon-192.png",
+      apple: s?.appIconUrl || "/icons/apple-touch-icon.png",
+    },
     ...(process.env.GOOGLE_SITE_VERIFICATION
       ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
       : {}),
@@ -221,7 +228,7 @@ export default async function RootLayout({
         />
         {/* Installing the app is what makes notifications carry OUR branding */}
         <link rel="manifest" href="/manifest.webmanifest" />
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        
         <meta name="theme-color" content="#6366f1" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

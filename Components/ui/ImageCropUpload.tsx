@@ -6,6 +6,9 @@ import { motion } from "framer-motion";
 import { Upload, ZoomIn, X, Check, Loader2, ImageIcon } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+/** How far out the frame can be zoomed — 0.4 leaves generous padding. */
+const MIN_ZOOM = 0.4;
+
 interface Props {
   /** Current image, shown as the preview. */
   value?: string;
@@ -38,6 +41,8 @@ export default function ImageCropUpload({
   round = true,
 }: Props) {
   const [src, setSrc] = useState<string | null>(null);
+  // Below 1 the picture sits inside the frame with padding — useful for a
+  // logo that shouldn't touch the edges of an app icon.
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [busy, setBusy] = useState(false);
@@ -109,8 +114,15 @@ export default function ImageCropUpload({
 
     ctx.imageSmoothingQuality = "high";
 
-    // "cover" fit, then the owner's zoom on top
-    const base = Math.max(fw / nw, fh / nh);
+    /**
+     * "contain", not "cover".
+     *
+     * Covering the frame means a wide photo is cropped to its middle strip
+     * before you touch anything — which is why every upload looked heavily
+     * zoomed in and there was no way back out. Starting contained shows the
+     * whole picture; zoom in from there if you want a tighter crop.
+     */
+    const base = Math.min(fw / nw, fh / nh);
     const scale = base * zoom;
     const drawW = nw * scale * k;
     const drawH = nh * scale * k;
@@ -246,10 +258,10 @@ export default function ImageCropUpload({
                       left: "50%",
                       top: "50%",
                       transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px)) scale(${zoom})`,
-                      minWidth: "100%",
-                      minHeight: "100%",
-                      objectFit: "cover",
-                      maxWidth: "none",
+                      // Matches the canvas maths above — contain, then zoom
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                      objectFit: "contain",
                     }}
                   />
                   {/* Rule-of-thirds guides, like any crop tool */}
@@ -266,8 +278,8 @@ export default function ImageCropUpload({
                 <ZoomIn size={15} className="text-gray-500 shrink-0" />
                 <input
                   type="range"
-                  min={1}
-                  max={4}
+                  min={MIN_ZOOM}
+                  max={5}
                   step={0.01}
                   value={zoom}
                   onChange={(e) => setZoom(+e.target.value)}
@@ -290,6 +302,17 @@ export default function ImageCropUpload({
                     <Check size={14} />
                   )}
                   Use this
+                </button>
+                <button
+                  onClick={() => {
+                    setZoom(1);
+                    setOffset({ x: 0, y: 0 });
+                  }}
+                  disabled={busy}
+                  title="Fit the whole image"
+                  className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white font-black text-[11px] uppercase tracking-widest transition-colors cursor-pointer"
+                >
+                  Fit
                 </button>
                 <button
                   onClick={() => setSrc(null)}

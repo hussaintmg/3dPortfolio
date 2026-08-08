@@ -9,29 +9,78 @@ import {
   CheckCircle2,
   Lock,
   MessageSquare,
+  Send,
+  Clock,
+  Loader2,
 } from "lucide-react";
 import axios from "axios";
+import { notify } from "@/lib/notify";
 import EditableText from "@/Components/editable/EditableText";
 import { SkeletonCard } from "@/Components/ui/Skeleton";
 import { StatusPill } from "../page";
+import {
+  canPay,
+  canRequest,
+  clientHint,
+  type AssignmentStatus,
+} from "@/lib/packageFlow";
 
 interface Assignment {
   _id: string;
   packageName: string;
   price: number;
   currency: string;
-  status: string;
+  status: AssignmentStatus;
   paid: boolean;
   paidAt?: string;
   projectUrl?: string;
   notes?: string;
   startedAt?: string;
   expiresAt?: string;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  declineReason?: string;
 }
 
 export default function PortalPackages() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Which card has its request box open. */
+  const [requesting, setRequesting] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const refresh = () =>
+    axios
+      .get("/api/assignments")
+      .then((r) => r.data.success && setAssignments(r.data.assignments || []))
+      .catch(() => {});
+
+  /**
+   * Asking is all this does. Nothing is charged and no invoice exists until
+   * Hussain approves — which is what the copy on the card promises.
+   */
+  const submitRequest = async (assignmentId: string) => {
+    try {
+      setBusy(assignmentId);
+      const { data } = await axios.post("/api/assignments/request", {
+        assignmentId,
+        note,
+      });
+      if (!data.success) throw new Error(data.message);
+      notify.success("Request sent", "You'll hear back before anything is charged");
+      setRequesting(null);
+      setNote("");
+      refresh();
+    } catch (err: any) {
+      notify.error(
+        "Could not send",
+        err.response?.data?.message || err.message,
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -143,15 +192,77 @@ export default function PortalPackages() {
                   <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
                     <Lock size={13} /> Payment complete
                   </span>
-                ) : (
+                ) : canPay(a) ? (
                   <Link
-                    href="/portal/invoices"
+                    href={
+                      a.invoiceId
+                        ? `/portal/invoices/${a.invoiceId}`
+                        : "/portal/invoices"
+                    }
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white text-[10px] font-black uppercase tracking-widest hover:bg-accent-hover transition-colors"
                   >
-                    View invoice
+                    Pay {a.invoiceNumber || "invoice"}
                   </Link>
+                ) : canRequest(a) ? (
+                  <button
+                    onClick={() => setRequesting(a._id)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white text-[10px] font-black uppercase tracking-widest hover:bg-accent-hover transition-colors cursor-pointer"
+                  >
+                    <Send size={13} /> Request this
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                    <Clock size={13} /> With Hussain
+                  </span>
                 )}
               </div>
+
+              {/* Always say what happens next — a status pill alone doesn't */}
+              {clientHint(a) && (
+                <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
+                  {clientHint(a)}
+                </p>
+              )}
+              {a.status === "declined" && a.declineReason && (
+                <p className="text-[11px] text-red-400/90 font-medium leading-relaxed">
+                  {a.declineReason}
+                </p>
+              )}
+
+              {requesting === a._id && (
+                <div className="space-y-2 pt-1">
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={2}
+                    placeholder="Anything I should know? (optional)"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs outline-none focus:border-accent resize-none placeholder:text-gray-600"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => submitRequest(a._id)}
+                      disabled={busy === a._id}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent hover:bg-accent-hover disabled:opacity-40 text-white text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer"
+                    >
+                      {busy === a._id ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Send size={13} />
+                      )}
+                      Send request
+                    </button>
+                    <button
+                      onClick={() => {
+                        setRequesting(null);
+                        setNote("");
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 text-[10px] font-black uppercase tracking-widest cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.article>
           ))}
         </div>

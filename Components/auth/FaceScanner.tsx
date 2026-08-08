@@ -218,11 +218,21 @@ export default function FaceScanner({
         runningRef.current = true;
         void tick();
 
-        // Nobody should be stuck staring at a camera that won't accept them
+        /**
+         * Give up on the blink by ourselves.
+         *
+         * Glasses, backlight and low-frame-rate webcams all defeat blink
+         * detection, and making someone press a button to admit that is a
+         * dead end dressed up as a choice. After a few seconds of a clearly
+         * present face, carry on — a note explains what was skipped.
+         */
         if (steps.some((s) => s.requireBlink)) {
           skipTimer = setTimeout(() => {
-            if (!cancelled && !blinkRef.current.blinked) setOfferSkip(true);
-          }, 15000);
+            if (cancelled || blinkRef.current.blinked) return;
+            blinkRef.current.blinked = true;
+            setOfferSkip(true);
+            setHint("");
+          }, 7000);
         }
       } catch (err: any) {
         if (cancelled) return;
@@ -364,28 +374,11 @@ export default function FaceScanner({
           photo.
         </p>
 
-        {/* Escape hatch. Skipping the blink check weakens the liveness
-            guarantee, so it says so rather than pretending otherwise. */}
-        {offerSkip && phase === "scanning" && !blinkRef.current.blinked && (
-          <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-3.5 space-y-2.5">
-            <p className="text-[11px] text-gray-300 font-medium leading-relaxed">
-              Blink not registering? It can struggle with glasses, strong
-              backlight or a low-frame-rate camera.
-            </p>
-            <button
-              onClick={() => {
-                blinkRef.current.blinked = true;
-                setOfferSkip(false);
-                setHint("");
-              }}
-              className="w-full py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-200 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-colors cursor-pointer"
-            >
-              Continue without the blink check
-            </button>
-            <p className="text-[9px] text-gray-600 font-medium text-center">
-              Less protection against a photo being held up
-            </p>
-          </div>
+        {/* Said plainly rather than hidden: the liveness check was skipped. */}
+        {offerSkip && phase !== "error" && (
+          <p className="text-[10px] text-amber-400/90 font-medium text-center leading-relaxed">
+            Couldn't read a blink — carrying on without it.
+          </p>
         )}
 
         {phase === "error" && (

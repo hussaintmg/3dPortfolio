@@ -75,7 +75,9 @@ export async function GET() {
   return NextResponse.json(manifest, {
     headers: {
       "Content-Type": "application/manifest+json",
-      "Cache-Control": "public, max-age=300",
+      // Revalidate every time: a stale manifest is why a freshly uploaded
+      // icon kept showing the old one on the home screen.
+      "Cache-Control": "public, max-age=0, must-revalidate",
     },
   });
 }

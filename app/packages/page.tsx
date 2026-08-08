@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Check, ArrowRight, Globe, Package as PackageIcon, Sparkles, MessageSquare } from "lucide-react";
+import { Check, ArrowRight, Globe, Package as PackageIcon, Sparkles, MessageSquare, Send, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { notify } from "@/lib/notify";
 import axios from "axios";
 import EditableText from "@/Components/editable/EditableText";
 import PageSections from "@/Components/sections/PageSections";
@@ -52,6 +54,43 @@ export default function PackagesPage() {
   const [loading, setLoading] = useState(true);
   const [pricedSolutions, setPricedSolutions] = useState<PricedSolution[]>([]);
   const [solutionsLoading, setSolutionsLoading] = useState(true);
+  const [requesting, setRequesting] = useState<string | null>(null);
+  const router = useRouter();
+
+  /**
+   * Ask for a catalogue package.
+   *
+   * Deliberately not a checkout: it records a request and notifies the
+   * owner. Payment only opens once he approves, so a client can never pay
+   * for something that hasn't been agreed.
+   */
+  const requestPackage = async (packageId: string, name: string) => {
+    try {
+      setRequesting(packageId);
+      const { data } = await axios.post("/api/assignments/request", {
+        packageId,
+      });
+      if (!data.success) throw new Error(data.message);
+      notify.success(
+        "Request sent",
+        `"${name}" is with Hussain — you'll be able to pay once he approves.`,
+      );
+      router.push("/portal/packages");
+    } catch (err: any) {
+      const status = err.response?.status;
+      if (status === 401) {
+        notify.info("Sign in first", "Requests are tied to your account.");
+        router.push("/login");
+        return;
+      }
+      notify.error(
+        "Could not send",
+        err.response?.data?.message || err.message,
+      );
+    } finally {
+      setRequesting(null);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -260,6 +299,20 @@ export default function PackagesPage() {
                       >
                         View Details <ArrowRight size={14} />
                       </Link>
+                      {/* Asking costs nothing and charges nothing — the
+                          owner has to approve before an invoice exists. */}
+                      <button
+                        onClick={() => requestPackage(pkg._id, pkg.name)}
+                        disabled={requesting === pkg._id}
+                        className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-accent hover:bg-accent-hover disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-[0.2em] transition-colors cursor-pointer"
+                      >
+                        {requesting === pkg._id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Send size={13} />
+                        )}
+                        Request this package
+                      </button>
                       <Link
                         href="/portal/chat"
                         className="w-full text-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-accent transition-colors py-2"

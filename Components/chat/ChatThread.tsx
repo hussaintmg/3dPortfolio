@@ -30,6 +30,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Skeleton } from "@/Components/ui/Skeleton";
 import ConfirmationModal from "@/Components/dashboard/ConfirmationModal";
 import MediaViewer, { type MediaItem } from "@/Components/chat/MediaViewer";
+import MessageTicks, { tickState } from "@/Components/chat/MessageTicks";
 
 /** PDFs get the built-in reader; everything else stays a download. */
 const isPdf = (a?: { name?: string; mime?: string; url?: string }) =>
@@ -56,6 +57,12 @@ export interface ChatMsg {
   createdAt: string;
   /** Written by the assistant rather than a person. */
   isAi?: boolean;
+  /** Tick state is derived from these — see MessageTicks. */
+  deliveredTo?: string[];
+  readBy?: string[];
+  heardBy?: string[];
+  editedAt?: string | null;
+  replyTo?: { id?: string; text?: string; senderName?: string; type?: string };
 }
 
 interface ChatThreadProps {
@@ -479,6 +486,25 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                       )}
                     </p>
                   )}
+                  {/* The quoted message, snapshotted at send time so it
+                      survives the original being deleted. */}
+                  {m.replyTo?.id && (
+                    <div
+                      className={`mb-1 px-3 py-2 rounded-2xl border-l-2 text-[11px] ${
+                        own
+                          ? "bg-accent/15 border-accent/60 ml-auto"
+                          : "bg-white/5 border-white/25"
+                      }`}
+                    >
+                      <p className="font-black text-[9px] uppercase tracking-widest text-accent truncate">
+                        {m.replyTo.senderName || "Message"}
+                      </p>
+                      <p className="text-gray-400 font-medium truncate">
+                        {m.replyTo.text ||
+                          (m.replyTo.type ? `a ${m.replyTo.type}` : "…")}
+                      </p>
+                    </div>
+                  )}
                   <div
                     className={`rounded-3xl overflow-hidden border ${
                       own
@@ -571,8 +597,22 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                       </a>
                     ) : null}
                   </div>
-                  <p className={`text-[9px] font-bold text-gray-600 mt-1 ${own ? "text-right mr-2" : "ml-3"}`}>
+                  <p
+                    className={`text-[9px] font-bold text-gray-600 mt-1 flex items-center gap-1 ${
+                      own ? "justify-end mr-2" : "ml-3"
+                    }`}
+                  >
                     {fmtTime(m.createdAt)}
+                    {m.editedAt && <span className="italic">· edited</span>}
+                    {/* Ticks belong to what YOU sent — nobody needs a read
+                        receipt on a message they received. */}
+                    {own && (
+                      <MessageTicks
+                        state={tickState(m, user.id)}
+                        isVoice={m.type === "audio"}
+                        heard={(m.heardBy || []).some((id) => id !== m.senderId)}
+                      />
+                    )}
                   </p>
 
                   {/* Message menu */}

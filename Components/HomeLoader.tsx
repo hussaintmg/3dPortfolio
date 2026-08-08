@@ -5,10 +5,27 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSite } from "@/context/SiteContext";
 import { useBootStatus, resetBootStatus } from "@/hooks/useBootStatus";
 
-/** Nothing should ever hold the site hostage — bail out after this. */
-const MAX_WAIT = 9000;
+/**
+ * Nothing should ever hold the site hostage — bail out after this.
+ *
+ * Deliberately short. The old nine seconds meant the hero's entrance
+ * animations had already played out behind the curtain, so it lifted onto a
+ * page that had finished moving. Three seconds is enough to cover the first
+ * paint without swallowing the thing it exists to reveal.
+ */
+const MAX_WAIT = 3200;
 /** A beat of stillness once everything is in, so the exit doesn't snap. */
-const SETTLE = 420;
+const SETTLE = 180;
+
+/**
+ * The scene is nice to have, not worth waiting for.
+ *
+ * WebGL can take seconds on a weak GPU, and holding the whole page for it is
+ * what made this feel slow. Once the content is in, the curtain lifts on a
+ * short grace period whether or not the sphere has drawn — it fades in
+ * behind the page perfectly well on its own.
+ */
+const SCENE_GRACE = 900;
 
 /**
  * The home page's loading curtain.
@@ -37,17 +54,21 @@ export default function HomeLoader() {
       setProgress((p) => {
         const target = sceneReady && dataReady ? 100 : sceneReady || dataReady ? 82 : 62;
         if (p >= target) return p;
-        return p + Math.max(0.6, (target - p) * 0.08);
+        return p + Math.max(2.5, (target - p) * 0.22);
       });
-    }, 60);
+    }, 45);
     return () => clearInterval(id);
   }, [visible, sceneReady, dataReady]);
 
   useEffect(() => {
-    if (!visible) return;
-    if (!sceneReady || !dataReady) return;
-    setProgress(100);
-    const id = setTimeout(() => setVisible(false), SETTLE);
+    if (!visible || !dataReady) return;
+
+    // Both in? Go straight away. Content only? Give the scene a moment.
+    const wait = sceneReady ? 0 : SCENE_GRACE;
+    const id = setTimeout(() => {
+      setProgress(100);
+      setTimeout(() => setVisible(false), SETTLE);
+    }, wait);
     return () => clearTimeout(id);
   }, [sceneReady, dataReady, visible]);
 

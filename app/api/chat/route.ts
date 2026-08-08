@@ -95,6 +95,20 @@ export async function GET(req: Request) {
       .limit(500)
       .lean();
 
+    /**
+     * Fetching a thread is the moment we know it reached this person's
+     * device — that is what the second tick means. Read state is separate
+     * and only set when they actually open the conversation (the PUT below).
+     */
+    ChatMessage.updateMany(
+      {
+        conversationId: threadId,
+        senderId: { $ne: user.id },
+        deliveredTo: { $ne: user.id },
+      },
+      { $addToSet: { deliveredTo: user.id } },
+    ).catch(() => {});
+
     return NextResponse.json({ success: true, messages, conversationId: threadId });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
@@ -114,7 +128,7 @@ export async function POST(req: Request) {
 
     await dbConnect();
     const body = await req.json();
-    const { type = "text", text = "", attachment, conversationId } = body;
+    const { type = "text", text = "", attachment, conversationId, replyTo } = body;
 
     if (type === "text" && !String(text).trim()) {
       return NextResponse.json(
@@ -154,6 +168,16 @@ export async function POST(req: Request) {
           }
         : undefined,
       readBy: [user.id],
+      deliveredTo: [user.id],
+      // A snapshot, so the quote survives the original being deleted
+      replyTo: replyTo?.id
+        ? {
+            id: String(replyTo.id),
+            text: String(replyTo.text || "").slice(0, 160),
+            senderName: String(replyTo.senderName || "").slice(0, 60),
+            type: String(replyTo.type || "text"),
+          }
+        : undefined,
     });
 
     // Notify the dashboard when a CLIENT writes (non-blocking)
