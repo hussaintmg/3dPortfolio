@@ -10,11 +10,23 @@ import { webData } from "@/constants/webData";
  * JSON-LD below matters as much as the meta tags.
  */
 
-export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  "https://hussainsportfolio.vercel.app"
-).replace(/\/+$/, "");
+/**
+ * The canonical public origin.
+ *
+ * `NEXT_PUBLIC_BASE_URL` is deliberately NOT consulted: it is used for
+ * internal calls and was left pointing at a retired deployment, which put a
+ * dead domain into every sitemap entry and canonical tag. Vercel's own
+ * production-URL variable is the reliable fallback.
+ */
+export const SITE_URL = (() => {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
+  if (explicit) return explicit.replace(/\/+$/, "");
+
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (vercel) return `https://${vercel.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+
+  return "https://hussainsportfolio.vercel.app";
+})();
 
 export interface SeoProfile {
   siteName: string;
