@@ -44,15 +44,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Notification bell (admin/owner) */}
       <NotificationsBell />
 
-      {/* Main Content Area */}
-      <main 
-        className={`flex-1 flex flex-col min-h-screen max-w-full transition-all duration-400 ease-[power3.inOut]
+      {/* Main Content Area.
+          `min-w-0` is what stops a wide table from stretching the flex row
+          and pushing the whole dashboard sideways on a phone. */}
+      <main
+        className={`flex-1 min-w-0 flex flex-col min-h-screen max-w-full overflow-x-hidden transition-all duration-400 ease-[power3.inOut]
           ${!isMobile ? (isOpen ? "ml-[280px]" : "ml-[80px]") : "ml-0"}
         `}
       >
-        <div className={`flex-1`}>
-          {children}
-        </div>
+        {/* Clears the floating menu button and the bell on small screens */}
+        <div className="flex-1 pt-16 lg:pt-0">{children}</div>
       </main>
     </div>
   );

@@ -16,7 +16,7 @@ export default function RejectedAdminsPage() {
              <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20">
                <UserRoundX size={24} />
              </div>
-             <h1 className="text-3xl font-black bg-linear-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
+             <h1 className="text-2xl sm:text-3xl font-black bg-linear-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
                Rejected <span className="text-rose-500">Admins</span>
              </h1>
           </div>

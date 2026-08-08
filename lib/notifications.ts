@@ -1,7 +1,13 @@
 import { headers } from "next/headers";
 import dbConnect from "@/lib/mongoose";
 import Notification from "@/models/Notification";
+import SiteSettings from "@/models/SiteSettings";
 import { sendPush } from "@/lib/push";
+import {
+  resolveNotificationUrl,
+  type Audience,
+  type NotificationType,
+} from "@/lib/notificationRoutes";
 
 /**
  * The origin this request actually arrived on. Using the live host (rather
@@ -28,20 +34,18 @@ async function selfOrigin() {
   );
 }
 
-export type NotificationType =
-  | "enquiry"
-  | "subscriber"
-  | "chat"
-  | "payment"
-  | "system";
+export type { NotificationType } from "@/lib/notificationRoutes";
 
 interface NotifyInput {
   type: NotificationType;
   title: string;
   body?: string;
+  /** Explicit destination; otherwise it is derived from type + audience. */
   link?: string;
   /** Deliver to specific users instead of all staff. */
   userIds?: string[];
+  /** Conversation / invoice / enquiry id, used to build a deep link. */
+  entityId?: string;
   /** Groups replacements: a second message from the same thread replaces it. */
   tag?: string;
   requireInteraction?: boolean;
@@ -55,12 +59,35 @@ interface NotifyInput {
  * Failures in the delivery channels never break the caller.
  */
 export async function raiseNotification(input: NotifyInput) {
-  const { type, title, body = "", link = "", userIds, tag, requireInteraction } = input;
+  const {
+    type,
+    title,
+    body = "",
+    link = "",
+    userIds,
+    entityId,
+    tag,
+    requireInteraction,
+  } = input;
+
+  const meta = { entityId, explicit: link || undefined };
+  /** Where a click lands, per role. */
+  const urlFor = (role: string) =>
+    resolveNotificationUrl(type, (role as Audience) || "user", meta);
+
+  // The stored record is read by staff in the bell menu
+  const staffLink = resolveNotificationUrl(type, "owner", meta);
 
   let record: any = null;
+  let icon: string | undefined;
   try {
     await dbConnect();
-    record = await Notification.create({ type, title, body, link });
+    record = await Notification.create({ type, title, body, link: staffLink });
+    // The owner's uploaded app icon, so the notification carries our brand
+    const s: any = await SiteSettings.findOne({ key: "global" })
+      .select("appIconUrl")
+      .lean();
+    if (s?.appIconUrl) icon = s.appIconUrl;
   } catch {
     // an unwritable record shouldn't stop the live channels
   }
@@ -69,11 +96,11 @@ export async function raiseNotification(input: NotifyInput) {
     {
       title,
       body,
-      url: link || "/dashboard",
+      icon,
       tag: tag || `${type}-${record?._id || Date.now()}`,
       requireInteraction,
     },
-    userIds?.length ? { userIds } : { staffOnly: true },
+    userIds?.length ? { userIds, urlFor } : { staffOnly: true, urlFor },
   ).catch(() => ({ sent: 0 }));
 
   // Realtime nudge for tabs that are already open
@@ -90,7 +117,10 @@ export async function raiseNotification(input: NotifyInput) {
           type,
           title,
           body,
-          link,
+          // Targeted delivery goes to clients; the broadcast goes to staff
+          link: userIds?.length
+            ? resolveNotificationUrl(type, "user", meta)
+            : staffLink,
           read: false,
           createdAt: new Date().toISOString(),
         },

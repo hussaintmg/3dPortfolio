@@ -48,9 +48,9 @@ export default function PortalPackages() {
   }, []);
 
   return (
-    <div className="p-6 sm:p-10 space-y-8 pt-20 lg:pt-10">
+    <div className="p-4 sm:p-6 md:p-10 space-y-8 pt-20 lg:pt-10">
       <header className="space-y-2">
-        <h1 className="text-3xl font-black text-white tracking-tighter">
+        <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter">
           <EditableText k="portal.packages.heading">My Packages</EditableText>
         </h1>
         <EditableText
@@ -112,7 +112,7 @@ export default function PortalPackages() {
               </div>
 
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-white tracking-tighter">
+                <span className="text-2xl sm:text-3xl font-black text-white tracking-tighter">
                   {a.currency} {a.price}
                 </span>
                 {a.paid && (

@@ -36,7 +36,15 @@ export interface PushPayload {
  */
 export async function sendPush(
   payload: PushPayload,
-  opts: { userIds?: string[]; staffOnly?: boolean } = {},
+  opts: {
+    userIds?: string[];
+    staffOnly?: boolean;
+    /**
+     * Per-recipient destination. A client tapping "new message" belongs in
+     * the portal, the owner tapping the same event belongs in the dashboard.
+     */
+    urlFor?: (role: string) => string;
+  } = {},
 ) {
   if (!configure()) {
     return { sent: 0, skipped: "VAPID keys are not configured" };
@@ -51,16 +59,26 @@ export async function sendPush(
   const subs: any[] = await PushSubscription.find(filter).lean();
   if (subs.length === 0) return { sent: 0 };
 
-  const body = JSON.stringify({
-    title: payload.title,
-    body: payload.body || "",
-    url: payload.url || "/dashboard",
-    tag: payload.tag,
-    icon: payload.icon,
-    image: payload.image,
-    requireInteraction: payload.requireInteraction,
-    timestamp: Date.now(),
-  });
+  // Only a handful of roles exist, so build one payload per role rather than
+  // re-serializing for every subscription.
+  const bodyCache = new Map<string, string>();
+  const bodyFor = (role: string) => {
+    const key = opts.urlFor ? role : "*";
+    const cached = bodyCache.get(key);
+    if (cached) return cached;
+    const json = JSON.stringify({
+      title: payload.title,
+      body: payload.body || "",
+      url: opts.urlFor ? opts.urlFor(role) : payload.url || "/",
+      tag: payload.tag,
+      icon: payload.icon,
+      image: payload.image,
+      requireInteraction: payload.requireInteraction,
+      timestamp: Date.now(),
+    });
+    bodyCache.set(key, json);
+    return json;
+  };
 
   let sent = 0;
   const dead: string[] = [];
@@ -70,7 +88,7 @@ export async function sendPush(
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: s.keys },
-          body,
+          bodyFor(s.role || "user"),
           { TTL: 3600, urgency: "high" },
         );
         sent += 1;

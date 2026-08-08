@@ -21,6 +21,16 @@ const SiteSettingsSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     faviconUrl: { type: String, default: "" },
     faviconStorageKey: { type: String, default: "" },
+    /**
+     * Square app icon used by the installed PWA and by push notifications.
+     * Stored separately from the favicon: the favicon is a tiny 32px mark,
+     * this one has to hold up at 512px on a home screen.
+     */
+    appIconUrl: { type: String, default: "" },
+    appIconStorageKey: { type: String, default: "" },
+    /** Colours the OS uses for the splash screen and title bar. */
+    themeColor: { type: String, default: "#0083fe" },
+    backgroundColor: { type: String, default: "#0b0f19" },
     email: { type: String, default: "" },
     phone: { type: String, default: "" },
     address: { type: String, default: "" },

@@ -76,7 +76,7 @@ export default function EnquiriesPage() {
         {/* HEADER */}
         <header className="reveal-item flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div>
-            <h1 className="text-4xl font-black text-white tracking-tighter">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tighter">
               Enquiry <span className="italic text-accent">Vault.</span>
             </h1>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mt-2">

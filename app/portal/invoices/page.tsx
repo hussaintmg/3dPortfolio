@@ -40,9 +40,9 @@ export default function PortalInvoices() {
   }, []);
 
   return (
-    <div className="p-6 sm:p-10 space-y-8 pt-20 lg:pt-10">
+    <div className="p-4 sm:p-6 md:p-10 space-y-8 pt-20 lg:pt-10">
       <header className="space-y-2">
-        <h1 className="text-3xl font-black text-white tracking-tighter">
+        <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter">
           <EditableText k="portal.invoices.heading">Invoices</EditableText>
         </h1>
         <EditableText

@@ -156,8 +156,8 @@ export default function PasskeyManager() {
   };
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-card p-8 space-y-6">
-      <div className="flex items-start justify-between gap-6">
+    <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
         <div className="space-y-2">
           <h2 className="text-xs font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
             <Fingerprint size={14} /> Fingerprint &amp; Face Sign-in
@@ -168,7 +168,7 @@ export default function PasskeyManager() {
             leave the device — only a public key is stored.
           </p>
         </div>
-        <div className="shrink-0 flex flex-col gap-2">
+        <div className="shrink-0 flex flex-row sm:flex-col gap-2">
           <button
             onClick={() => addDevice("platform")}
             disabled={busy || !supported}

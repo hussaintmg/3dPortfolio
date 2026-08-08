@@ -41,6 +41,10 @@ export async function PUT(req: Request) {
       description,
       faviconUrl,
       faviconStorageKey,
+      appIconUrl,
+      appIconStorageKey,
+      themeColor,
+      backgroundColor,
       email,
       phone,
       address,
@@ -59,6 +63,13 @@ export async function PUT(req: Request) {
     ) {
       await deleteFileFromSupabase(existing.faviconStorageKey);
     }
+    if (
+      existing?.appIconStorageKey &&
+      appIconStorageKey &&
+      existing.appIconStorageKey !== appIconStorageKey
+    ) {
+      await deleteFileFromSupabase(existing.appIconStorageKey);
+    }
 
     const settings = await SiteSettings.findOneAndUpdate(
       { key: "global" },
@@ -69,6 +80,10 @@ export async function PUT(req: Request) {
           ...(description !== undefined && { description }),
           ...(faviconUrl !== undefined && { faviconUrl }),
           ...(faviconStorageKey !== undefined && { faviconStorageKey }),
+          ...(appIconUrl !== undefined && { appIconUrl }),
+          ...(appIconStorageKey !== undefined && { appIconStorageKey }),
+          ...(themeColor !== undefined && { themeColor }),
+          ...(backgroundColor !== undefined && { backgroundColor }),
           ...(email !== undefined && { email }),
           ...(phone !== undefined && { phone }),
           ...(address !== undefined && { address }),

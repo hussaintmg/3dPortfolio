@@ -221,7 +221,7 @@ export default function DashboardProjects() {
 
   if (loading)
     return (
-      <div className="min-h-screen p-6 sm:p-10">
+      <div className="min-h-screen p-4 sm:p-6 md:p-10">
         <div className="max-w-7xl mx-auto space-y-16">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
             <div className="space-y-3">
@@ -245,11 +245,11 @@ export default function DashboardProjects() {
     );
 
   return (
-    <div ref={containerRef} className="min-h-screen p-6 sm:p-10 selection:bg-[#6366F1]/30">
+    <div ref={containerRef} className="min-h-screen p-4 sm:p-6 md:p-10 selection:bg-[#6366F1]/30">
       <div className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16 dash-item">
           <div className="space-y-2">
-            <h1 className="text-3xl lg:text-4xl font-bold text-white tracking-tight flex items-center gap-4">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight flex items-center gap-4">
               <div className="size-12 rounded-xl bg-card flex items-center justify-center text-[#6366F1] border border-white/10 shadow-sm">
                   <FolderOpen size={24} />
               </div>
@@ -424,7 +424,7 @@ export default function DashboardProjects() {
             onClick={() => setIsModalOpen(false)}
           />
           <div
-            className="relative w-full max-w-4xl bg-card rounded-3xl border border-white/10 p-6 sm:p-10 shadow-2xl my-auto"
+            className="relative w-full max-w-4xl bg-card rounded-3xl border border-white/10 p-4 sm:p-6 md:p-10 shadow-2xl my-auto"
           >
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">

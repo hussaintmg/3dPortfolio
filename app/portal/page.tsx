@@ -92,7 +92,7 @@ export default function PortalOverview() {
   ];
 
   return (
-    <div className="p-6 sm:p-10 space-y-10 pt-20 lg:pt-10">
+    <div className="p-4 sm:p-6 md:p-10 space-y-10 pt-20 lg:pt-10">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: 20 }}
@@ -100,7 +100,7 @@ export default function PortalOverview() {
         transition={{ duration: 0.5 }}
         className="space-y-2"
       >
-        <h1 className="text-3xl lg:text-4xl font-black text-white tracking-tighter">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tighter">
           <EditableText k="portal.greeting">Welcome back</EditableText>,{" "}
           <span className="text-transparent bg-clip-text bg-linear-to-r from-accent to-purple-400">
             {user?.displayName || user?.username}
@@ -117,7 +117,7 @@ export default function PortalOverview() {
       </motion.header>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading
           ? Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-36 rounded-3xl" />
@@ -149,7 +149,7 @@ export default function PortalOverview() {
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-1.5">
                       {s.label}
                     </p>
-                    <p className="text-3xl font-black text-white tracking-tighter">
+                    <p className="text-2xl sm:text-3xl font-black text-white tracking-tighter">
                       {s.value}
                     </p>
                   </Link>

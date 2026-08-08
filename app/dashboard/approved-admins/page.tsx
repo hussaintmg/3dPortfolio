@@ -16,7 +16,7 @@ export default function ApprovedAdminsPage() {
              <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                <UserCheck size={24} />
              </div>
-             <h1 className="text-3xl font-black bg-linear-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
+             <h1 className="text-2xl sm:text-3xl font-black bg-linear-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
                Approved <span className="text-emerald-500">Admins</span>
              </h1>
           </div>

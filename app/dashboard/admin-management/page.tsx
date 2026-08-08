@@ -86,7 +86,7 @@ export default function AdminManagement() {
   const approvedAdmins = admins.filter(a => a.status === 'approved' || a.status === 'rejected');
 
   return (
-    <div className="min-h-screen p-6 sm:p-10 bg-[#F9FAFB] text-gray-900 selection:bg-indigo-100">
+    <div className="min-h-screen p-4 sm:p-6 md:p-10 bg-[#F9FAFB] text-gray-900 selection:bg-indigo-100">
       <div className="max-w-7xl mx-auto space-y-20">
         
         {/* Header */}
@@ -111,7 +111,7 @@ export default function AdminManagement() {
         <section className="space-y-10">
            <div className="flex items-center gap-4 mb-4">
               <div className="size-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 border border-red-100"><ShieldAlert size={22} /></div>
-              <h2 className="text-4xl font-black tracking-tighter text-gray-900 italic">Vetting Pipeline <span className="text-red-500 ml-4 font-black">[{pendingAdmins.length}]</span></h2>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tighter text-gray-900 italic">Vetting Pipeline <span className="text-red-500 ml-4 font-black">[{pendingAdmins.length}]</span></h2>
            </div>
 
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
@@ -130,7 +130,7 @@ export default function AdminManagement() {
                        </div>
                        <div className="relative z-10 space-y-8">
                           <div className="space-y-2">
-                             <h3 className="text-3xl font-black text-gray-900 tracking-tighter truncate">{a.username}</h3>
+                             <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tighter truncate">{a.username}</h3>
                              <p className="text-gray-400 text-xs font-black uppercase tracking-widest">{a.email}</p>
                           </div>
                           <div className="flex gap-4">
@@ -159,7 +159,7 @@ export default function AdminManagement() {
         <section className="space-y-12">
            <div className="flex items-center gap-4 mb-4">
               <div className="size-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-accent border border-indigo-100"><Sparkles size={22} /></div>
-              <h2 className="text-4xl font-black tracking-tighter text-gray-900 italic">Active Operations Pool</h2>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tighter text-gray-900 italic">Active Operations Pool</h2>
            </div>
 
            <div className="overflow-hidden rounded-4xl border border-gray-100 bg-white shadow-sm hidden lg:block">

@@ -8,6 +8,7 @@ import { homeLinks } from "../constants/navigation";
 import { useSite } from "../context/SiteContext";
 import EditableText from "./editable/EditableText";
 import EditableBox from "./editable/EditableBox";
+import { InstallLink } from "./pwa/InstallApp";
 import React, { useState } from "react";
 import axios from "axios";
 import { useToast } from "../Components/toast";
@@ -224,10 +225,12 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-16 sm:mt-20 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <p className="text-[11px] font-black text-gray-500 uppercase tracking-[0.2em]">
+        <div className="mt-16 sm:mt-20 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6 text-center sm:text-left">
+          <p className="text-[10px] sm:text-[11px] font-black text-gray-500 uppercase tracking-[0.2em]">
             © {currentYear} {settings.websiteName}. All rights reserved.
           </p>
+          {/* Only renders where the browser can actually install the app */}
+          <InstallLink className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-indigo-500/40 hover:text-white text-[10px] font-black uppercase tracking-[0.15em] text-gray-400 transition-colors cursor-pointer" />
         </div>
       </div>
     </footer>

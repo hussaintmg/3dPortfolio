@@ -68,7 +68,7 @@ export default function InvoiceDetail({
 
   if (loading)
     return (
-      <div className="p-6 sm:p-10 space-y-8 pt-20 lg:pt-10 max-w-4xl">
+      <div className="p-4 sm:p-6 md:p-10 space-y-8 pt-20 lg:pt-10 max-w-4xl">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-96 w-full rounded-3xl" />
       </div>
@@ -76,7 +76,7 @@ export default function InvoiceDetail({
 
   if (error || !invoice)
     return (
-      <div className="p-6 sm:p-10 pt-20 lg:pt-10">
+      <div className="p-4 sm:p-6 md:p-10 pt-20 lg:pt-10">
         <div className="max-w-md rounded-3xl border border-red-500/20 bg-red-500/5 p-8 space-y-4 text-center">
           <AlertTriangle size={26} className="mx-auto text-red-400" />
           <p className="text-sm font-bold text-white">{error}</p>
@@ -91,7 +91,7 @@ export default function InvoiceDetail({
     );
 
   return (
-    <div className="p-6 sm:p-10 pt-20 lg:pt-10">
+    <div className="p-4 sm:p-6 md:p-10 pt-20 lg:pt-10">
       {/* Screen-only toolbar */}
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 mb-6 print:hidden">
         <Link

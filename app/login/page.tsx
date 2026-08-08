@@ -16,6 +16,7 @@ import { Suspense } from "react";
 import FloatingInput from "@/Components/ui/FloatingInput";
 import EditableText from "@/Components/editable/EditableText";
 import PasskeyButton from "@/Components/auth/PasskeyButton";
+import FaceLoginButton from "@/Components/auth/FaceLoginButton";
 import { useSite } from "@/context/SiteContext";
 import { Construction } from "lucide-react";
 
@@ -150,10 +151,12 @@ function LoginContent() {
             </button>
           </form>
 
-          <div className="mt-7">
+          <div className="mt-7 space-y-3">
             {/* Passing the typed email lets us look up that account's
                 credentials when the device has no discoverable passkey. */}
             <PasskeyButton identifier={formData.email} />
+            {/* Our own camera check, for devices with no Hello / Face ID */}
+            <FaceLoginButton identifier={formData.email} />
           </div>
 
           <p className="text-center mt-10 text-xs text-gray-500">

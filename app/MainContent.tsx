@@ -4,7 +4,10 @@ import { usePathname } from "next/navigation";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import EditModeBar from "../Components/editable/EditModeBar";
+import SelectorStyles from "../Components/editable/SelectorStyles";
 import LiveNotifications from "../Components/notifications/LiveNotifications";
+import ServiceWorkerRegistrar from "../Components/pwa/ServiceWorkerRegistrar";
+import { InstallBanner } from "../Components/pwa/InstallApp";
 import { useNotify } from "@/hooks/useNotify";
 /**
  * Imported eagerly (it is light — three.js sits behind its own dynamic
@@ -28,6 +31,8 @@ export default function MainContent({ children }: { children: React.ReactNode })
 
   return (
     <>
+      {/* Styling the owner applied to freely-picked elements (every visitor) */}
+      <SelectorStyles />
       {isHome && <Scene3DBackground />}
       {showNavAndFooter && <Navbar />}
       <main className="flex-1 overflow-x-hidden relative">
@@ -38,6 +43,9 @@ export default function MainContent({ children }: { children: React.ReactNode })
       <EditModeBar />
       {/* Realtime notification cards for signed-in users */}
       <LiveNotifications />
+      <ServiceWorkerRegistrar />
+      {/* One-time "add to home screen" nudge on phones */}
+      {!isDashboardPage && <InstallBanner />}
     </>
   );
 }

@@ -16,7 +16,7 @@ export default function PendingAdminsPage() {
              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
                <UserSearch size={24} />
              </div>
-             <h1 className="text-3xl font-black bg-linear-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
+             <h1 className="text-2xl sm:text-3xl font-black bg-linear-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
                Pending <span className="text-amber-500">Admins</span>
              </h1>
           </div>

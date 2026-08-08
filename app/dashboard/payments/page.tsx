@@ -217,11 +217,11 @@ export default function PaymentsPage() {
   const enabledCount = METHODS.filter((m) => methods[m.id]?.enabled).length;
 
   return (
-    <div className="min-h-screen p-6 sm:p-10">
+    <div className="min-h-screen p-4 sm:p-6 md:p-10">
       <div className="max-w-5xl mx-auto space-y-10">
         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <h1 className="text-3xl lg:text-4xl font-bold text-white tracking-tight flex items-center gap-4">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight flex items-center gap-4">
               <div className="size-12 rounded-xl bg-card flex items-center justify-center text-accent border border-white/10">
                 <CreditCard size={24} />
               </div>
@@ -312,7 +312,7 @@ export default function PaymentsPage() {
           </div>
         ) : (
           <>
-            <section className="rounded-3xl border border-white/10 bg-card p-8 space-y-5">
+            <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-5">
               <h2 className="text-xs font-black text-accent uppercase tracking-[0.2em]">
                 Intro shown to clients
               </h2>

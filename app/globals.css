@@ -259,3 +259,35 @@ h6 {
 button {
   cursor: pointer;
 }
+
+/* ── Visual editor: picking any element on the page ─────────────────────── */
+
+/* While the picker is armed, nothing on the page should react to the pointer
+   the way it normally would — the click belongs to the editor. */
+body.editor-picking *:not([data-edit-bar] *):not([data-editor-ui] *) {
+  cursor: crosshair !important;
+}
+body.editor-picking [data-edit-bar],
+body.editor-picking [data-edit-bar] *,
+body.editor-picking [data-editor-ui],
+body.editor-picking [data-editor-ui] * {
+  cursor: auto;
+}
+body.editor-picking [data-edit-bar] button,
+body.editor-picking [data-editor-ui] button,
+body.editor-picking [data-editor-ui] a {
+  cursor: pointer !important;
+}
+
+.editor-hover-target {
+  outline: 2px dashed rgba(0, 131, 254, 0.85) !important;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.editor-selected-target {
+  outline: 2px solid #0083fe !important;
+  outline-offset: 2px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 6px rgba(0, 131, 254, 0.14) !important;
+}

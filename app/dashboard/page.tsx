@@ -122,10 +122,10 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* MAIN CONTENT */}
-      <main className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+      <main className="flex-1 p-4 sm:p-8 lg:p-12 overflow-y-auto custom-scrollbar">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div>
-            <h1 className="text-4xl font-black text-white tracking-tighter">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tighter">
               Admin Dashboard
             </h1>
             <p className="text-sm text-gray-500 font-medium tracking-tight">
@@ -138,7 +138,7 @@ export default function DashboardPage() {
         </header>
 
         {/* STATS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
           {statsLoading
             ? Array.from({ length: 4 }).map((_, i) => (
                 <SkeletonStat key={i} className="rounded-[2.5rem] p-8" />
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                       {stat.label}
                     </h4>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-black text-white tracking-tighter">
+                      <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tighter">
                         {stat.value}
                       </span>
                       <Activity className="size-4 text-accent/30" />

@@ -245,7 +245,7 @@ export default function DashboardPackages() {
     );
 
   return (
-    <div className="min-h-screen p-6 sm:p-10">
+    <div className="min-h-screen p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
           <div className="space-y-2">
@@ -451,7 +451,7 @@ export default function DashboardPackages() {
                 />
               </div>
               <div className="flex items-baseline gap-4 mb-8">
-                <span className="text-4xl font-black text-gray-900 tracking-tighter">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 tracking-tighter">
                   ${pkg.discountedPrice}
                 </span>
                 {pkg.discountPercent > 0 && (
@@ -497,7 +497,7 @@ export default function DashboardPackages() {
               className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[3rem] border border-gray-100 bg-white p-10 lg:p-14 shadow-2xl shadow-indigo-600/5"
             >
               <div className="flex items-center justify-between mb-12">
-                <h2 className="text-3xl font-black text-gray-900 tracking-tighter flex items-center gap-4">
+                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tighter flex items-center gap-4">
                   <div className="size-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-accent border border-indigo-100 shadow-sm">
                     {editingPkg ? <Edit size={26} /> : <Plus size={26} />}
                   </div>

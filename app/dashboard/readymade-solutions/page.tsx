@@ -60,7 +60,7 @@ function ReadymadeSolutionsDashboard() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-[10px] font-black tracking-widest uppercase mb-2 animate-in fade-in slide-in-from-left-5 duration-700">
              <Sparkles size={12} /> Solution Repositories
           </div>
-          <h1 className="text-3xl lg:text-4xl font-black tracking-tight leading-tight animate-in fade-in slide-in-from-bottom-5 duration-1000">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight animate-in fade-in slide-in-from-bottom-5 duration-1000">
             Readymade <span className="text-transparent bg-clip-text bg-linear-to-r from-indigo-500 via-purple-500 to-indigo-400">Solutions</span>
           </h1>
           <p className="text-gray-500 text-sm lg:text-base font-medium max-w-xl leading-relaxed animate-in fade-in slide-in-from-bottom-10 duration-1000">

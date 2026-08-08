@@ -17,7 +17,9 @@ import {
   Construction,
   PencilLine,
   Link as LinkIcon,
+  Smartphone,
 } from "lucide-react";
+import ImageCropUpload from "@/Components/ui/ImageCropUpload";
 import axios from "axios";
 import { notify } from "@/lib/notify";
 import FloatingInput from "@/Components/ui/FloatingInput";
@@ -25,6 +27,7 @@ import FloatingTextarea from "@/Components/ui/FloatingTextarea";
 import { Skeleton } from "@/Components/ui/Skeleton";
 import Toggle from "@/Components/ui/Toggle";
 import PasskeyManager from "@/Components/auth/PasskeyManager";
+import FaceUnlockManager from "@/Components/auth/FaceUnlockManager";
 import NotificationSettings from "@/Components/notifications/NotificationSettings";
 import { useSite } from "@/context/SiteContext";
 import { useAuth } from "@/context/AuthContext";
@@ -41,6 +44,10 @@ interface SettingsForm {
   description: string;
   faviconUrl: string;
   faviconStorageKey: string;
+  appIconUrl: string;
+  appIconStorageKey: string;
+  themeColor: string;
+  backgroundColor: string;
   email: string;
   phone: string;
   address: string;
@@ -56,6 +63,10 @@ const emptyForm: SettingsForm = {
   description: "",
   faviconUrl: "",
   faviconStorageKey: "",
+  appIconUrl: "",
+  appIconStorageKey: "",
+  themeColor: "#0083fe",
+  backgroundColor: "#0b0f19",
   email: "",
   phone: "",
   address: "",
@@ -89,6 +100,10 @@ export default function SiteSettingPage() {
             description: s.description || "",
             faviconUrl: s.faviconUrl || "",
             faviconStorageKey: s.faviconStorageKey || "",
+            appIconUrl: s.appIconUrl || "",
+            appIconStorageKey: s.appIconStorageKey || "",
+            themeColor: s.themeColor || "#0083fe",
+            backgroundColor: s.backgroundColor || "#0b0f19",
             email: s.email || "",
             phone: s.phone || "",
             address: s.address || "",
@@ -186,11 +201,11 @@ export default function SiteSettingPage() {
   }
 
   return (
-    <div className="min-h-screen p-6 sm:p-10 selection:bg-accent/30">
+    <div className="min-h-screen p-4 sm:p-6 md:p-10 selection:bg-accent/30">
       <div className="max-w-4xl mx-auto space-y-10">
         {/* Header */}
         <header className="space-y-2">
-          <h1 className="text-3xl lg:text-4xl font-bold text-white tracking-tight flex items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight flex items-center gap-4">
             <div className="size-12 rounded-xl bg-card flex items-center justify-center text-accent border border-white/10 shadow-sm">
               <Settings size={24} />
             </div>
@@ -204,13 +219,13 @@ export default function SiteSettingPage() {
 
         {loading ? (
           <div className="space-y-6">
-            <div className="rounded-3xl border border-white/10 bg-card p-8 space-y-6">
+            <div className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
               <Skeleton className="h-5 w-40" />
               <Skeleton className="h-14 w-full rounded-2xl" />
               <Skeleton className="h-14 w-full rounded-2xl" />
               <Skeleton className="h-28 w-full rounded-2xl" />
             </div>
-            <div className="rounded-3xl border border-white/10 bg-card p-8 space-y-6">
+            <div className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
               <Skeleton className="h-5 w-40" />
               <div className="flex gap-6">
                 <Skeleton className="size-24 rounded-2xl" />
@@ -272,10 +287,11 @@ export default function SiteSettingPage() {
 
             {/* Biometric sign-in + alerts for this staff account */}
             <PasskeyManager />
+            <FaceUnlockManager />
             <NotificationSettings />
 
             {/* Identity */}
-            <section className="rounded-3xl border border-white/10 bg-card p-8 space-y-6">
+            <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
               <h2 className="text-xs font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
                 <Globe size={14} /> Website Identity
               </h2>
@@ -301,7 +317,7 @@ export default function SiteSettingPage() {
             </section>
 
             {/* Favicon */}
-            <section className="rounded-3xl border border-white/10 bg-card p-8 space-y-6">
+            <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
               <h2 className="text-xs font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
                 <ImageIcon size={14} /> Favicon
               </h2>
@@ -359,8 +375,81 @@ export default function SiteSettingPage() {
               </div>
             </section>
 
+            {/* Installed app (PWA) */}
+            <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-xs font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Smartphone size={14} /> App Icon &amp; Theme
+                </h2>
+                <p className="text-sm text-gray-400 font-medium leading-relaxed max-w-lg">
+                  Used when someone installs the site to their home screen, and
+                  on every push notification. Upload any picture — you crop it
+                  to a square here, so it never ends up stretched.
+                </p>
+              </div>
+
+              <ImageCropUpload
+                value={form.appIconUrl}
+                onChange={(url, key) =>
+                  set({ appIconUrl: url, appIconStorageKey: key })
+                }
+                ratio={1}
+                outputSize={512}
+                label="App icon"
+                hint="512 × 512 PNG · keep the mark inside the middle 80%"
+              />
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                {(
+                  [
+                    ["Theme colour", "themeColor"],
+                    ["Splash background", "backgroundColor"],
+                  ] as const
+                ).map(([label, field]) => (
+                  <label
+                    key={field}
+                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/2 px-4 py-3 cursor-pointer"
+                  >
+                    <input
+                      type="color"
+                      value={form[field]}
+                      onChange={(e) => set({ [field]: e.target.value } as any)}
+                      className="size-9 rounded-lg bg-transparent border border-white/10 cursor-pointer shrink-0"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
+                        {label}
+                      </span>
+                      <span className="block text-xs font-bold text-white tabular-nums">
+                        {form[field]}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              {form.appIconUrl && (
+                <div className="flex items-center gap-4 rounded-2xl border border-white/8 bg-white/2 p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.appIconUrl}
+                    alt=""
+                    className="size-14 rounded-[14px] object-cover border border-white/10"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white truncate">
+                      {form.websiteName || "Your site"}
+                    </p>
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                      Home-screen preview
+                    </p>
+                  </div>
+                </div>
+              )}
+            </section>
+
             {/* Contact */}
-            <section className="rounded-3xl border border-white/10 bg-card p-8 space-y-6">
+            <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
               <h2 className="text-xs font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
                 <Mail size={14} /> Contact Details
               </h2>
@@ -388,7 +477,7 @@ export default function SiteSettingPage() {
             </section>
 
             {/* Footer navigation links */}
-            <section className="rounded-3xl border border-white/10 bg-card p-8 space-y-6">
+            <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
                   <LinkIcon size={14} /> Footer Links
@@ -455,7 +544,7 @@ export default function SiteSettingPage() {
             </section>
 
             {/* Socials */}
-            <section className="rounded-3xl border border-white/10 bg-card p-8 space-y-6">
+            <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
                   <Share2 size={14} /> Social Links
