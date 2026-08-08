@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Fingerprint, Loader2, ScanFace } from "lucide-react";
+import { Fingerprint, Loader2 } from "lucide-react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import axios from "axios";
 import { notify } from "@/lib/notify";
@@ -119,12 +119,14 @@ export default function PasskeyButton({
         {busy ? (
           <Loader2 size={17} className="animate-spin" />
         ) : (
-          <span className="flex items-center gap-1.5 text-accent">
+          <span className="text-accent">
             <Fingerprint size={17} />
-            <ScanFace size={17} />
           </span>
         )}
-        Use fingerprint or face
+        {/* This button is the device passkey — Windows Hello, Touch ID or a
+            phone. The camera-based face check is its own button below, so
+            naming both "face" here only confused which one to press. */}
+        Use fingerprint (device unlock)
       </button>
     </div>
   );

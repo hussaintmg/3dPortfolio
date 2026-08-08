@@ -19,6 +19,12 @@ const VariableSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     /** Built-ins cannot be deleted, only edited. */
     system: { type: Boolean, default: false },
+    /**
+     * A list rather than a single value — an invoice's line items, say.
+     * These cannot be dropped into a text box on their own; they feed a
+     * table element, so the editor has to say which is which.
+     */
+    isArray: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

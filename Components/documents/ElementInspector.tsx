@@ -13,6 +13,8 @@ import {
   RotateCw,
   Upload,
   Loader2,
+  X,
+  Braces,
 } from "lucide-react";
 import { DesignElement, ShapeKind } from "@/lib/pdfDesigner";
 import { notify } from "@/lib/notify";
@@ -42,6 +44,8 @@ interface Props {
   onChange: (patch: Partial<DesignElement>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  /** Only rendered below `lg`, where the panel is an overlay. */
+  onClose?: () => void;
 }
 
 const Field = ({
@@ -73,6 +77,7 @@ export default function ElementInspector({
   onChange,
   onDelete,
   onDuplicate,
+  onClose,
 }: Props) {
   const [uploading, setUploading] = useState(false);
 
@@ -98,7 +103,7 @@ export default function ElementInspector({
 
   if (!element) {
     return (
-      <div className="w-72 shrink-0 border-l border-white/8 bg-[#0d0d14] p-6">
+      <div className="w-72 max-w-[85vw] shrink-0 border-l border-white/8 bg-[#0d0d14] p-6">
         <p className="text-[11px] font-bold text-gray-600 leading-relaxed">
           Select an element on the page to edit it, or drop a variable onto a
           text, image or QR element to bind real data.
@@ -106,6 +111,42 @@ export default function ElementInspector({
       </div>
     );
   }
+
+  /**
+   * Every `{{token}}` this element resolves at render time.
+   *
+   * A table doesn't carry its token in visible text — it emits
+   * `{{table:items}}` — so it's derived from the type rather than scraped,
+   * otherwise the one element whose binding matters most would show none.
+   */
+  const bindings = (() => {
+    const found: { token: string; isArray: boolean }[] = [];
+    const seen = new Set<string>();
+    const push = (token: string, isArray: boolean) => {
+      if (seen.has(token)) return;
+      seen.add(token);
+      found.push({ token, isArray });
+    };
+
+    if (element.type === "table") {
+      push("{{table:items}}", true);
+    }
+
+    const haystack = [
+      element.props?.text,
+      element.props?.src,
+      element.props?.url,
+      element.props?.columns,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    for (const m of haystack.matchAll(/\{\{\s*([^}]+?)\s*\}\}/g)) {
+      const key = m[1];
+      push(`{{${key}}}`, key.startsWith("table:") || key === "items");
+    }
+    return found;
+  })();
 
   const st = element.style || {};
   const setStyle = (patch: Record<string, string>) => {
@@ -122,7 +163,7 @@ export default function ElementInspector({
   const hasFill = element.type === "shape" || element.type === "line" || isText;
 
   return (
-    <div className="w-72 shrink-0 border-l border-white/8 bg-[#0d0d14] overflow-y-auto custom-scrollbar" data-lenis-prevent>
+    <div className="w-72 max-w-[85vw] shrink-0 border-l border-white/8 bg-[#0d0d14] overflow-y-auto custom-scrollbar" data-lenis-prevent>
       <div className="px-5 py-4 border-b border-white/8 flex items-center justify-between">
         <div className="min-w-0">
           <p className="text-[11px] font-black uppercase tracking-widest text-white">
@@ -131,6 +172,15 @@ export default function ElementInspector({
           <p className="text-[9px] font-bold text-gray-600">{element.id}</p>
         </div>
         <div className="flex items-center gap-1.5">
+          {onClose && (
+            <button
+              onClick={onClose}
+              title="Close"
+              className="lg:hidden p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <X size={13} />
+            </button>
+          )}
           <button
             onClick={onDuplicate}
             title="Duplicate"
@@ -149,6 +199,36 @@ export default function ElementInspector({
       </div>
 
       <div className="p-5 space-y-5">
+        {/* What real data this element pulls in. Without this you had to read
+            the raw text to find out whether anything was bound at all — and
+            a table's binding is invisible in the canvas entirely. */}
+        <div className="rounded-xl border border-white/8 bg-white/2 p-3 space-y-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-1.5">
+            <Braces size={11} /> Data
+          </span>
+          {bindings.length === 0 ? (
+            <p className="text-[10px] text-gray-600 font-medium leading-relaxed">
+              No variable bound — this element shows fixed content. Drag one
+              from the Variables list onto it.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {bindings.map((b) => (
+                <div key={b.token} className="flex items-center gap-1.5">
+                  <code className="text-[10px] font-black text-white truncate">
+                    {b.token}
+                  </code>
+                  {b.isArray && (
+                    <span className="px-1 rounded bg-amber-500/15 border border-amber-500/25 text-amber-400 text-[8px] font-black uppercase tracking-widest shrink-0">
+                      list
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Content */}
         {isText && (
           <div className="space-y-2">

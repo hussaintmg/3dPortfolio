@@ -8,6 +8,7 @@ import {
   startCamera,
   stopCamera,
   readFace,
+  readEyes,
   loadModels,
   BlinkDetector,
   type FaceReading,
@@ -66,6 +67,10 @@ export default function FaceScanner({
   const [mounted, setMounted] = useState(false);
   const [reading, setReading] = useState<FaceReading | null>(null);
   const [flash, setFlash] = useState(false);
+  /** 0 = eyes open, 1 = shut. Drives the live blink meter. */
+  const [eyeState, setEyeState] = useState<number | null>(null);
+  /** Offered if a blink can't be detected, so nobody is ever locked out. */
+  const [offerSkip, setOfferSkip] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -91,9 +96,53 @@ export default function FaceScanner({
     [cleanup, onComplete],
   );
 
-  /** One pass of detect → judge → maybe capture. */
+  /**
+   * One pass of detect → judge → maybe capture.
+   *
+   * A step that needs a blink runs the cheap landmarks-only reader until the
+   * blink lands, and only then pays for a descriptor. Running the full
+   * pipeline throughout meant sampling three or four frames a second, and a
+   * blink is over in about 150ms — so it was routinely missed entirely.
+   */
   const tick = useCallback(async () => {
     if (!runningRef.current || !videoRef.current) return;
+
+    const step = steps[capturedRef.current.length];
+    const needsBlink = !!step?.requireBlink && !blinkRef.current.blinked;
+
+    if (needsBlink) {
+      let eyes: Awaited<ReturnType<typeof readEyes>> = null;
+      try {
+        eyes = await readEyes(videoRef.current);
+      } catch {
+        // a dropped frame is not worth surfacing
+      }
+      if (!runningRef.current) return;
+
+      if (!eyes) {
+        setHint("No face detected — look at the camera");
+        setEyeState(null);
+      } else if (eyes.coverage < MIN_COVERAGE) {
+        setHint("Move a little closer");
+        setEyeState(null);
+      } else {
+        blinkRef.current.push(eyes.ear);
+        const shut = blinkRef.current.closedness(eyes.ear);
+        setEyeState(shut);
+        setHint(
+          !blinkRef.current.calibrated
+            ? "Keep your eyes open for a second…"
+            : blinkRef.current.blinked
+              ? "Got it"
+              : "Now blink once",
+        );
+      }
+
+      if (runningRef.current) {
+        rafRef.current = requestAnimationFrame(() => void tick());
+      }
+      return;
+    }
 
     let r: FaceReading | null = null;
     try {
@@ -112,32 +161,20 @@ export default function FaceScanner({
     } else if (r.score < MIN_SCORE) {
       setHint("Hold still, and find some more light");
     } else {
-      const step = steps[capturedRef.current.length];
-      if (step?.requireBlink) {
-        blinkRef.current.push(r.ear);
-        if (!blinkRef.current.blinked) {
-          setHint("Now blink once");
-        }
+      capturedRef.current.push(r.descriptor);
+      blinkRef.current.reset();
+      setEyeState(null);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 220);
+
+      if (capturedRef.current.length >= steps.length) {
+        await finish(capturedRef.current.slice());
+        return;
       }
-
-      const readyToCapture =
-        !step?.requireBlink || blinkRef.current.blinked;
-
-      if (readyToCapture) {
-        capturedRef.current.push(r.descriptor);
-        blinkRef.current.reset();
-        setFlash(true);
-        setTimeout(() => setFlash(false), 220);
-
-        if (capturedRef.current.length >= steps.length) {
-          await finish(capturedRef.current.slice());
-          return;
-        }
-        setStepIndex(capturedRef.current.length);
-        setHint("");
-        // A short pause so the next prompt isn't captured from the same pose
-        await new Promise((res) => setTimeout(res, 900));
-      }
+      setStepIndex(capturedRef.current.length);
+      setHint("");
+      // A short pause so the next prompt isn't captured from the same pose
+      await new Promise((res) => setTimeout(res, 900));
     }
 
     if (runningRef.current) {
@@ -153,12 +190,15 @@ export default function FaceScanner({
     }
 
     let cancelled = false;
+    let skipTimer: ReturnType<typeof setTimeout> | undefined;
     capturedRef.current = [];
     blinkRef.current.reset();
     setStepIndex(0);
     setError("");
     setHint("");
     setReading(null);
+    setEyeState(null);
+    setOfferSkip(false);
     setPhase("loading");
 
     (async () => {
@@ -177,6 +217,13 @@ export default function FaceScanner({
         setHint("");
         runningRef.current = true;
         void tick();
+
+        // Nobody should be stuck staring at a camera that won't accept them
+        if (steps.some((s) => s.requireBlink)) {
+          skipTimer = setTimeout(() => {
+            if (!cancelled && !blinkRef.current.blinked) setOfferSkip(true);
+          }, 15000);
+        }
       } catch (err: any) {
         if (cancelled) return;
         setError(
@@ -192,6 +239,7 @@ export default function FaceScanner({
 
     return () => {
       cancelled = true;
+      if (skipTimer) clearTimeout(skipTimer);
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,6 +300,26 @@ export default function FaceScanner({
           )}
         </div>
 
+        {/* Live blink meter — proof that the eyes are actually being read */}
+        {eyeState !== null && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest">
+              <span className="text-gray-500">Eyes</span>
+              <span
+                className={eyeState > 0.28 ? "text-accent" : "text-gray-600"}
+              >
+                {eyeState > 0.28 ? "closing" : "open"}
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent transition-[width] duration-100"
+                style={{ width: `${Math.round(eyeState * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Per-step dots */}
         {steps.length > 1 && (
           <div className="flex justify-center gap-2">
@@ -295,6 +363,30 @@ export default function FaceScanner({
           numeric face signature is sent, and it can't be turned back into a
           photo.
         </p>
+
+        {/* Escape hatch. Skipping the blink check weakens the liveness
+            guarantee, so it says so rather than pretending otherwise. */}
+        {offerSkip && phase === "scanning" && !blinkRef.current.blinked && (
+          <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-3.5 space-y-2.5">
+            <p className="text-[11px] text-gray-300 font-medium leading-relaxed">
+              Blink not registering? It can struggle with glasses, strong
+              backlight or a low-frame-rate camera.
+            </p>
+            <button
+              onClick={() => {
+                blinkRef.current.blinked = true;
+                setOfferSkip(false);
+                setHint("");
+              }}
+              className="w-full py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-200 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              Continue without the blink check
+            </button>
+            <p className="text-[9px] text-gray-600 font-medium text-center">
+              Less protection against a photo being held up
+            </p>
+          </div>
+        )}
 
         {phase === "error" && (
           <button

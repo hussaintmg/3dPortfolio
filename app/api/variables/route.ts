@@ -35,6 +35,16 @@ export async function GET(req: Request) {
     const read = (path: string) =>
       path.split(".").reduce((a: any, p) => (a == null ? a : a[p]), context);
 
+    /** Arrays and objects need a readable one-liner, not "[object Object]". */
+    const summarise = (value: any) => {
+      if (value == null) return null;
+      if (Array.isArray(value)) {
+        return `${value.length} row${value.length === 1 ? "" : "s"}`;
+      }
+      if (typeof value === "object") return "(object)";
+      return value;
+    };
+
     return NextResponse.json({
       success: true,
       variables: (vars as any[]).map((v) => ({
@@ -48,7 +58,16 @@ export async function GET(req: Request) {
         description: v.description,
         system: !!v.system,
         // what this variable resolves to right now
-        resolved: read(v.path || v.key) ?? null,
+        resolved: summarise(read(v.path || v.key)),
+        /**
+         * Flagged explicitly, or inferred from what it actually resolves to.
+         * The editor needs to know: a list feeds a table element and cannot
+         * be dropped into a text box on its own.
+         */
+        isArray: !!v.isArray || Array.isArray(read(v.path || v.key)),
+        arrayLength: Array.isArray(read(v.path || v.key))
+          ? read(v.path || v.key).length
+          : null,
       })),
     });
   } catch (error: any) {

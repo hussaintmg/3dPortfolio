@@ -21,12 +21,33 @@ export const EASINGS = [
   { id: "sharp", label: "Sharp", css: "cubic-bezier(0.4, 0, 0.2, 1)" },
 ] as const;
 
+/**
+ * Motion that keeps running after the entrance, for things meant to draw the
+ * eye — a call-to-action, a badge, a notification dot.
+ */
+export const LOOP_PRESETS = [
+  { id: "none", label: "None" },
+  { id: "pulse", label: "Pulse" },
+  { id: "float", label: "Float" },
+  { id: "bob", label: "Bob" },
+  { id: "sway", label: "Sway" },
+  { id: "glow", label: "Glow" },
+  { id: "shimmer", label: "Shimmer" },
+  { id: "spin-slow", label: "Slow spin" },
+  { id: "heartbeat", label: "Heartbeat" },
+] as const;
+
 export type AnimationConfig = {
   type: string;
   duration: number;
   delay: number;
   easing: string;
   once: boolean;
+  /** Continuous animation applied after the entrance finishes. */
+  loop?: string;
+  loopDuration?: number;
+  /** Pause between each repeat of the loop, in ms. */
+  loopDelay?: number;
 };
 
 export const DEFAULT_ANIMATION: AnimationConfig = {
@@ -35,6 +56,9 @@ export const DEFAULT_ANIMATION: AnimationConfig = {
   delay: 0,
   easing: "smooth",
   once: true,
+  loop: "none",
+  loopDuration: 2000,
+  loopDelay: 0,
 };
 
 export const easingCss = (id: string) =>

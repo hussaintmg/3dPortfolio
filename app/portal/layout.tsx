@@ -13,6 +13,7 @@ import {
   X,
   ArrowLeft,
   ShieldCheck,
+  UserRound,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useSite } from "@/context/SiteContext";
@@ -23,6 +24,7 @@ const links = [
   { name: "My Packages", href: "/portal/packages", icon: Package },
   { name: "Invoices", href: "/portal/invoices", icon: ReceiptText },
   { name: "Chat", href: "/portal/chat", icon: MessageSquare },
+  { name: "Profile", href: "/portal/profile", icon: UserRound },
   { name: "Security", href: "/portal/settings", icon: ShieldCheck },
 ];
 

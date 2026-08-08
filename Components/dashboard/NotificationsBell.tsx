@@ -12,7 +12,10 @@ import {
   Sparkles,
   CheckCheck,
   Loader2,
+  GripVertical,
 } from "lucide-react";
+
+const POS_KEY = "bell-position";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { Skeleton } from "@/Components/ui/Skeleton";
@@ -54,6 +57,42 @@ export default function NotificationsBell() {
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  /** Anchored from the top-right so it stays put when the window is resized. */
+  const [pos, setPos] = useState({ top: 16, right: 24 });
+  const dragRef = useRef<
+    { x: number; y: number; top: number; right: number } | null
+  >(null);
+
+  const startDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      top: pos.top,
+      right: pos.right,
+    };
+  };
+
+  const onDragMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    setPos({
+      top: Math.max(4, Math.min(window.innerHeight - 60, d.top + (e.clientY - d.y))),
+      // Right-anchored, so a rightward drag DECREASES the offset
+      right: Math.max(4, Math.min(window.innerWidth - 60, d.right - (e.clientX - d.x))),
+    });
+  };
+
+  const endDrag = () => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    try {
+      localStorage.setItem(POS_KEY, JSON.stringify(pos));
+    } catch {
+      /* storage disabled — position just won't persist */
+    }
+  };
   const { notifyLocal } = usePushNotifications();
   /** Ids already announced, so a poll never re-alerts the same item. */
   const announced = useRef<Set<string>>(new Set());
@@ -103,6 +142,21 @@ export default function NotificationsBell() {
     return () => clearInterval(t);
   }, [isStaff, fetchNotifications]);
 
+  // Where the owner last parked the bell
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(POS_KEY);
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (typeof p?.top === "number" && typeof p?.right === "number") {
+          setPos(p);
+        }
+      }
+    } catch {
+      // corrupt entry — the default corner is fine
+    }
+  }, []);
+
   // Close on outside click
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -140,7 +194,24 @@ export default function NotificationsBell() {
   if (!isStaff) return null;
 
   return (
-    <div ref={wrapRef} className="fixed top-4 right-6 z-70">
+    <div
+      ref={wrapRef}
+      className="fixed z-70"
+      style={{ top: pos.top, right: pos.right }}
+    >
+      {/* Drag handle — the bell overlapped page headers on some screens and
+          there was no way to shift it out of the way. */}
+      <button
+        onPointerDown={startDrag}
+        onPointerMove={onDragMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        title="Drag to move"
+        aria-label="Move notifications button"
+        className="absolute -left-5 top-1/2 -translate-y-1/2 p-1 rounded text-gray-700 hover:text-accent opacity-0 hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-grab active:cursor-grabbing touch-none"
+      >
+        <GripVertical size={13} />
+      </button>
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Notifications"

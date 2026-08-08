@@ -11,6 +11,7 @@ import {
 import { GripVertical, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { SkeletonRow } from "./Skeleton";
+import ViewToggle, { useViewMode } from "./ViewToggle";
 
 export interface Column<T> {
   id: string;
@@ -33,6 +34,14 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   className?: string;
   onRowClick?: (row: T) => void;
+  /**
+   * Supplying this adds a grid/list switch. Rows render as cards in grid
+   * mode and as the table in list mode; without it the table is all there
+   * is, so no switch appears.
+   */
+  renderCard?: (row: T) => ReactNode;
+  /** Cards per row at the widest breakpoint. */
+  gridCols?: 2 | 3 | 4;
 }
 
 const storageKey = (k: string) => `dt-cols:${k}`;
@@ -51,7 +60,11 @@ export default function DataTable<T>({
   emptyMessage = "Nothing here yet.",
   className,
   onRowClick,
+  renderCard,
+  gridCols = 3,
 }: DataTableProps<T>) {
+  // A table without cards has nothing to switch to, so it stays a table
+  const [view, setView] = useViewMode(`table:${tableKey}`, "list");
   const [order, setOrder] = useState<string[]>(() => columns.map((c) => c.id));
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<{ id: string; side: "left" | "right" } | null>(null);
@@ -135,22 +148,81 @@ export default function DataTable<T>({
   const isCustomOrder =
     restored && order.join("|") !== columns.map((c) => c.id).join("|");
 
+  const showCards = !!renderCard && view === "grid";
+
   return (
     <div className={cn("rounded-3xl border border-white/10 bg-card overflow-hidden", className)}>
-      {isCustomOrder && (
-        <div className="flex items-center justify-between px-6 py-2.5 bg-accent/5 border-b border-white/5">
-          <span className="text-[10px] font-black uppercase tracking-widest text-accent">
-            Custom column order
-          </span>
-          <button
-            onClick={resetOrder}
-            className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors"
-          >
-            <RotateCcw size={11} /> Reset
-          </button>
+      {(isCustomOrder || renderCard) && (
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2.5 bg-accent/5 border-b border-white/5">
+          {isCustomOrder ? (
+            <button
+              onClick={resetOrder}
+              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-accent hover:text-white transition-colors cursor-pointer"
+            >
+              <RotateCcw size={11} /> Reset column order
+            </button>
+          ) : (
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">
+              {rows.length} {rows.length === 1 ? "item" : "items"}
+            </span>
+          )}
+          {renderCard && (
+            <ViewToggle value={view} onChange={setView} className="shrink-0" />
+          )}
         </div>
       )}
 
+      {showCards ? (
+        <div className="p-4 sm:p-5">
+          {loading ? (
+            <div
+              className={cn(
+                "grid gap-4",
+                gridCols === 2
+                  ? "sm:grid-cols-2"
+                  : gridCols === 4
+                    ? "sm:grid-cols-2 xl:grid-cols-4"
+                    : "sm:grid-cols-2 xl:grid-cols-3",
+              )}
+            >
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-36 rounded-2xl bg-white/5 border border-white/8 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="py-12 text-center text-xs font-bold text-gray-600 uppercase tracking-widest">
+              {emptyMessage}
+            </p>
+          ) : (
+            <div
+              className={cn(
+                "grid gap-4",
+                gridCols === 2
+                  ? "sm:grid-cols-2"
+                  : gridCols === 4
+                    ? "sm:grid-cols-2 xl:grid-cols-4"
+                    : "sm:grid-cols-2 xl:grid-cols-3",
+              )}
+            >
+              {rows.map((row) => (
+                <div
+                  key={rowKey(row)}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={cn(
+                    "rounded-2xl border border-white/8 bg-white/2 p-4 transition-colors",
+                    onRowClick && "cursor-pointer hover:border-accent/40",
+                  )}
+                >
+                  {renderCard!(row)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="overflow-x-auto custom-scrollbar" data-lenis-prevent>
         <table className="w-full text-left border-collapse min-w-[640px]">
           <thead className="bg-[#0A0A0A] border-b border-white/5">
@@ -293,12 +365,15 @@ export default function DataTable<T>({
           </tbody>
         </table>
       </div>
+      )}
 
-      <div className="px-6 py-2.5 border-t border-white/5 bg-white/2">
-        <p className="text-[9px] font-bold uppercase tracking-widest text-gray-600">
-          Tip: drag a column header onto another to reorder
-        </p>
-      </div>
+      {!showCards && (
+        <div className="px-6 py-2.5 border-t border-white/5 bg-white/2">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-gray-600">
+            Tip: drag a column header onto another to reorder
+          </p>
+        </div>
+      )}
     </div>
   );
 }

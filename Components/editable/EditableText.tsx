@@ -99,7 +99,7 @@ export default function EditableText({
         // Clean by default — the outline only appears on hover, so the page
         // still looks like the real site while editing.
         isEditing &&
-          "cursor-text rounded-sm min-w-[1ch] outline-offset-4 transition-[outline-color,box-shadow] duration-150 outline-dashed outline-1 outline-transparent hover:outline-accent",
+          "editor-text-field cursor-text rounded-sm min-w-[1ch] outline-offset-4 transition-[outline-color,box-shadow] duration-150 outline-dashed outline-1 outline-transparent hover:outline-accent",
         isEditing &&
           isSelected &&
           "outline-solid outline-2 outline-accent shadow-[0_0_0_4px_rgba(99,102,241,0.15)]",

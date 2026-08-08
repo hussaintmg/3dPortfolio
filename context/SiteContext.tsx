@@ -317,6 +317,64 @@ export function SiteProvider({
     setContentVersion((v) => v + 1);
   }, []);
 
+  /**
+   * Mirrors on-page footer edits into the settings document.
+   *
+   * Keys look like `footer.nav.2.label` / `footer.nav.2.link`; the index is
+   * the position in the rendered list, which is the same order the settings
+   * array uses.
+   */
+  const syncFooterLinks = useCallback(
+    async (
+      textUpdates: Record<string, string>,
+      linkUpdates: Record<string, LinkConfig | null>,
+    ) => {
+      const touched = new Map<number, { name?: string; url?: string }>();
+
+      for (const [key, value] of Object.entries(textUpdates)) {
+        const m = key.match(/^footer\.nav\.(\d+)\.label$/);
+        if (!m) continue;
+        const i = Number(m[1]);
+        touched.set(i, { ...touched.get(i), name: value });
+      }
+      for (const [key, value] of Object.entries(linkUpdates)) {
+        const m = key.match(/^footer\.nav\.(\d+)\.link$/);
+        if (!m || !value?.href) continue;
+        const i = Number(m[1]);
+        touched.set(i, { ...touched.get(i), url: value.href });
+      }
+
+      if (touched.size === 0) return;
+
+      const current = settings.footerLinks.length
+        ? [...settings.footerLinks]
+        : [];
+      let changed = false;
+
+      for (const [index, patch] of touched) {
+        // Only rows that already exist in settings — the on-page list may be
+        // falling back to the bundled defaults, and inventing rows from that
+        // would silently create a footer the owner never configured.
+        if (!current[index]) continue;
+        current[index] = {
+          name: patch.name ?? current[index].name,
+          url: patch.url ?? current[index].url,
+        };
+        changed = true;
+      }
+
+      if (!changed) return;
+      const res = await axios.put("/api/site-settings", {
+        ...settings,
+        footerLinks: current,
+      });
+      if (res.data?.success) {
+        setSettings((prev) => ({ ...prev, footerLinks: current }));
+      }
+    },
+    [settings],
+  );
+
   const saveEdits = useCallback(async () => {
     const textUpdates = { ...pendingText.current };
     const styleUpdates = { ...pendingStyles.current };
@@ -393,6 +451,12 @@ export function SiteProvider({
           return next;
         });
 
+      // Footer links live in two places: the on-page editor writes content
+      // and link records, while the dashboard's Settings screen manages the
+      // `footerLinks` array. Editing one and leaving the other stale made
+      // the two screens disagree, so a footer edit is mirrored across.
+      await syncFooterLinks(textUpdates, linkUpdates).catch(() => {});
+
       pendingText.current = {};
       pendingStyles.current = {};
       pendingLinks.current = {};
@@ -417,7 +481,7 @@ export function SiteProvider({
     } finally {
       setSaving(false);
     }
-  }, [router, setIsEditing]);
+  }, [router, setIsEditing, syncFooterLinks]);
 
   const discardEdits = useCallback(() => {
     pendingText.current = {};

@@ -10,6 +10,9 @@ import {
   Move,
   Sparkles,
   RotateCcw,
+  GripVertical,
+  Repeat,
+  MousePointer2,
   X,
   AlignLeft,
   AlignCenter,
@@ -21,7 +24,12 @@ import {
   Wand2,
   Play,
 } from "lucide-react";
-import { ANIMATION_PRESETS, EASINGS, DEFAULT_ANIMATION } from "@/lib/animations";
+import {
+  ANIMATION_PRESETS,
+  EASINGS,
+  DEFAULT_ANIMATION,
+  LOOP_PRESETS,
+} from "@/lib/animations";
 import { useSite } from "@/context/SiteContext";
 import { ToggleTrack } from "@/Components/ui/Toggle";
 import { cn } from "@/lib/cn";
@@ -55,7 +63,15 @@ const SWATCHES = [
   "#06b6d4",
 ];
 
-type TabId = "text" | "fill" | "border" | "space" | "fx" | "motion" | "link";
+type TabId =
+  | "text"
+  | "fill"
+  | "border"
+  | "space"
+  | "fx"
+  | "hover"
+  | "motion"
+  | "link";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "text", label: "Text", icon: <Type size={13} /> },
@@ -63,6 +79,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "border", label: "Border", icon: <Square size={13} /> },
   { id: "space", label: "Space", icon: <Move size={13} /> },
   { id: "fx", label: "FX", icon: <Sparkles size={13} /> },
+  { id: "hover", label: "Hover", icon: <MousePointer2 size={13} /> },
   { id: "motion", label: "Motion", icon: <Wand2 size={13} /> },
   { id: "link", label: "Link", icon: <Link2 size={13} /> },
 ];
@@ -203,8 +220,48 @@ export default function StylePanel() {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  /** Set once the owner drags the panel; suppresses auto-placement. */
+  const movedRef = useRef(false);
+  const dragRef = useRef<{ x: number; y: number; top: number; left: number } | null>(
+    null,
+  );
 
   useEffect(() => setMounted(true), []);
+
+  // A new selection earns a fresh auto-placement
+  useEffect(() => {
+    movedRef.current = false;
+  }, [selection?.key]);
+
+  /** Drag by the header, clamped so the panel can never leave the screen. */
+  const startDrag = (e: React.PointerEvent) => {
+    if (!pos) return;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = { x: e.clientX, y: e.clientY, top: pos.top, left: pos.left };
+    movedRef.current = true;
+  };
+
+  const onDrag = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const width = panelRef.current?.offsetWidth || PANEL_W;
+    const height = panelRef.current?.offsetHeight || PANEL_H;
+    setPos({
+      top: Math.max(
+        8,
+        Math.min(window.innerHeight - 48, d.top + (e.clientY - d.y)),
+      ),
+      left: Math.max(
+        8 - width + 80,
+        Math.min(window.innerWidth - 80, d.left + (e.clientX - d.x)),
+      ),
+    });
+    void height;
+  };
+
+  const endDrag = () => {
+    dragRef.current = null;
+  };
 
   const computed = useMemo(() => {
     if (!selection?.el || typeof window === "undefined") return null;
@@ -212,8 +269,36 @@ export default function StylePanel() {
   }, [selection]);
 
   const current = (selection ? getStyle(selection.key) : undefined) || {};
-  const link = selection ? getLink(selection.key) : undefined;
+  const stored = selection ? getLink(selection.key) : undefined;
   const anim = selection ? getAnimation(selection.key) : undefined;
+
+  /**
+   * The element's real link, when it already has one.
+   *
+   * Picking a navbar or footer link that was written in the markup used to
+   * show an empty, switched-off Link tab — as if the element weren't a link
+   * at all — and saving from there would have replaced a working href with
+   * nothing. The existing destination is read off the DOM and shown as the
+   * starting point instead.
+   */
+  const domLink = useMemo(() => {
+    const el = selection?.el;
+    if (!el) return null;
+    const anchor =
+      el instanceof HTMLAnchorElement ? el : el.closest?.("a[href]");
+    const href = anchor?.getAttribute("href");
+    if (!href || href === "#") return null;
+    return {
+      href,
+      newTab: anchor?.getAttribute("target") === "_blank",
+      enabled: true,
+    };
+    // selection.el is enough — the DOM node changes with the selection
+  }, [selection]);
+
+  const link = stored ?? domLink ?? undefined;
+  /** True when the destination shown came from the page, not from a save. */
+  const linkIsInherited = !stored && !!domLink;
 
   /** Re-runs the element's keyframes so the owner can see the effect. */
   const previewAnimation = () => {
@@ -231,6 +316,9 @@ export default function StylePanel() {
       setPos(null);
       return;
     }
+    // A panel the owner dragged stays where they put it until they pick
+    // something else — auto-placing over their choice is maddening.
+    if (movedRef.current) return;
     const place = () => {
       const r = selection.el.getBoundingClientRect();
       const spaceAbove = r.top;
@@ -272,6 +360,22 @@ export default function StylePanel() {
   const set = (patch: Record<string, string>) =>
     updateStyle(selection.key, patch as any);
 
+  /**
+   * Hover styling is stored against a derived key and emitted as a real
+   * `:hover` rule. It can't live in the element's inline style — inline
+   * styles have no notion of a pointer state.
+   */
+  const hoverKey = `${selection.key}::hover`;
+  const hoverStyle = (getStyle(hoverKey) || {}) as Record<string, string>;
+  const setHover = (patch: Record<string, string>) => {
+    // A transition has to exist for the hover to ease rather than snap
+    const withEase =
+      hoverStyle.transitionDuration || patch.transitionDuration
+        ? patch
+        : { ...patch, transitionDuration: "200ms" };
+    updateStyle(hoverKey, withEase as any);
+  };
+
   const panel = (
     <AnimatePresence>
       <motion.div
@@ -286,9 +390,16 @@ export default function StylePanel() {
         style={{ top: pos.top, left: pos.left, width: PANEL_W }}
         className="fixed z-[99] rounded-3xl bg-[#0d0d14]/97 backdrop-blur-2xl border border-white/12 shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
-          <div className="min-w-0">
+        {/* Header — also the drag handle */}
+        <div
+          onPointerDown={startDrag}
+          onPointerMove={onDrag}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/8 cursor-grab active:cursor-grabbing select-none touch-none"
+        >
+          <GripVertical size={13} className="text-gray-700 shrink-0" />
+          <div className="min-w-0 flex-1">
             <p className="text-[11px] font-black text-white uppercase tracking-widest truncate">
               {selection.label}
             </p>
@@ -296,7 +407,10 @@ export default function StylePanel() {
               {selection.key}
             </p>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div
+            className="flex items-center gap-1.5 shrink-0"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => resetStyle(selection.key)}
               title="Reset all styles on this element"
@@ -707,6 +821,130 @@ export default function StylePanel() {
             </>
           )}
 
+          {tab === "hover" && (
+            <>
+              <p className="text-[10px] text-gray-500 font-medium leading-relaxed">
+                How this element looks while the pointer is over it. Anything
+                left blank keeps its normal value.
+              </p>
+
+              <Row label="Text">
+                <ColorControl
+                  value={hoverStyle.color}
+                  computed={computed?.color}
+                  onChange={(v: string) => setHover({ color: v })}
+                />
+              </Row>
+              <Row label="Background">
+                <ColorControl
+                  value={hoverStyle.backgroundColor}
+                  computed={computed?.backgroundColor}
+                  onChange={(v: string) => setHover({ backgroundColor: v })}
+                />
+              </Row>
+              <Row label="Border">
+                <ColorControl
+                  value={hoverStyle.borderColor}
+                  computed={computed?.borderColor}
+                  onChange={(v: string) => setHover({ borderColor: v })}
+                />
+              </Row>
+
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  Movement
+                </span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { label: "Lift", v: "translateY(-4px)" },
+                    { label: "Grow", v: "scale(1.05)" },
+                    { label: "Shrink", v: "scale(0.96)" },
+                    { label: "Nudge", v: "translateX(4px)" },
+                    { label: "Tilt", v: "rotate(-2deg)" },
+                    { label: "None", v: "" },
+                  ].map((t) => (
+                    <button
+                      key={t.label}
+                      onClick={() => setHover({ transform: t.v })}
+                      className={cn(
+                        "py-2 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-colors",
+                        (hoverStyle.transform || "") === t.v && t.v !== ""
+                          ? "bg-accent text-white border-accent"
+                          : "border-white/10 text-gray-400 hover:text-white hover:border-accent",
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  Shadow
+                </span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { label: "Soft", v: "0 10px 30px rgba(0,0,0,0.35)" },
+                    { label: "Glow", v: "0 0 26px rgba(0,131,254,0.5)" },
+                    { label: "None", v: "" },
+                  ].map((s) => (
+                    <button
+                      key={s.label}
+                      onClick={() => setHover({ boxShadow: s.v })}
+                      className="py-2 rounded-lg border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white hover:border-accent transition-colors"
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Row label="Opacity">
+                <input
+                  type="range"
+                  min={20}
+                  max={100}
+                  step={5}
+                  value={Math.round(
+                    Number(hoverStyle.opacity ?? 1) * 100,
+                  )}
+                  onChange={(e) =>
+                    setHover({ opacity: String(Number(e.target.value) / 100) })
+                  }
+                  className="w-28 accent-[#0083fe] cursor-pointer"
+                />
+              </Row>
+
+              <Row label="Speed">
+                <input
+                  type="number"
+                  min={0}
+                  max={2000}
+                  step={25}
+                  value={parseInt(
+                    String(hoverStyle.transitionDuration || "200"),
+                    10,
+                  )}
+                  onChange={(e) =>
+                    setHover({ transitionDuration: `${e.target.value}ms` })
+                  }
+                  className="w-20 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-accent"
+                />
+                <span className="text-[9px] text-gray-600 font-bold">MS</span>
+              </Row>
+
+              {Object.keys(hoverStyle).length > 0 && (
+                <button
+                  onClick={() => resetStyle(hoverKey)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 hover:border-red-400/40 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={11} /> Clear hover styles
+                </button>
+              )}
+            </>
+          )}
+
           {tab === "motion" && (
             <>
               <div className="space-y-2">
@@ -802,6 +1040,72 @@ export default function StylePanel() {
                     }
                   />
 
+                  {/* ── Continuous motion, after the entrance ────────────── */}
+                  <div className="pt-2 space-y-2.5 border-t border-white/8">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1.5">
+                      <Repeat size={11} /> Keeps moving
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {LOOP_PRESETS.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() =>
+                            updateAnimation(selection.key, { loop: p.id })
+                          }
+                          className={cn(
+                            "py-2 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-colors",
+                            (anim.loop || "none") === p.id
+                              ? "bg-accent text-white border-accent"
+                              : "border-white/10 text-gray-400 hover:text-white hover:border-accent",
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {!!anim.loop && anim.loop !== "none" && (
+                      <>
+                        <Row label="Cycle">
+                          <input
+                            type="number"
+                            min={300}
+                            max={20000}
+                            step={100}
+                            value={anim.loopDuration ?? 2000}
+                            onChange={(e) =>
+                              updateAnimation(selection.key, {
+                                loopDuration: Number(e.target.value),
+                              })
+                            }
+                            className="w-20 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-accent"
+                          />
+                          <span className="text-[9px] text-gray-600 font-bold">MS</span>
+                        </Row>
+                        <Row label="Start after">
+                          <input
+                            type="number"
+                            min={0}
+                            max={20000}
+                            step={100}
+                            value={anim.loopDelay ?? 0}
+                            onChange={(e) =>
+                              updateAnimation(selection.key, {
+                                loopDelay: Number(e.target.value),
+                              })
+                            }
+                            className="w-20 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-accent"
+                          />
+                          <span className="text-[9px] text-gray-600 font-bold">MS</span>
+                        </Row>
+                        <p className="text-[10px] text-gray-600 font-medium leading-relaxed">
+                          Starts once the entrance has finished. Anyone with
+                          reduced motion turned on sees none of it.
+                        </p>
+                      </>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-2 pt-1">
                     <button
                       onClick={previewAnimation}
@@ -825,15 +1129,27 @@ export default function StylePanel() {
             <>
               <CapsuleToggle
                 label={link?.href ? "Link is on" : "Turn this into a link"}
-                hint="Makes this element clickable"
+                hint={
+                  linkIsInherited
+                    ? "This element already links somewhere"
+                    : "Makes this element clickable"
+                }
                 checked={!!link?.enabled && !!link?.href}
                 onChange={(v) =>
                   updateLink(selection.key, {
                     enabled: v,
                     href: link?.href || "/",
+                    newTab: !!link?.newTab,
                   })
                 }
               />
+
+              {linkIsInherited && (
+                <p className="text-[10px] text-gray-500 font-medium leading-relaxed -mt-1">
+                  Showing the destination already in the page. Change it here
+                  and your version takes over.
+                </p>
+              )}
 
               <div className="space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">

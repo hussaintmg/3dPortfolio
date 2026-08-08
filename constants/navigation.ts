@@ -151,6 +151,12 @@ export const ownerDashboardLinks = [
     dropdown: null,
   },
   {
+    name: "My Profile",
+    url: "/dashboard/profile",
+    icon: "UserRound",
+    dropdown: null,
+  },
+  {
     name: "Setting",
     url: "/dashboard/setting",
     icon: "Settings",

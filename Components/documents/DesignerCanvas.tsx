@@ -124,10 +124,12 @@ export default function DesignerCanvas({
     el: DesignElement,
     mode: "move" | "resize" | "rotate",
   ) => {
-    if (el.locked) return;
     e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    // A locked element still gets selected — you just can't drag it. Not
+    // being able to click it at all made locking feel like deleting.
     onSelect(el.id);
+    if (el.locked) return;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     setGesture({
       id: el.id,
       mode,
@@ -394,7 +396,17 @@ export default function DesignerCanvas({
           onPointerMove={onPointerMove}
           onPointerUp={endGesture}
           onPointerLeave={endGesture}
-          onClick={() => {
+          onClick={(e) => {
+            /**
+             * Only a click on the empty page clears the selection.
+             *
+             * Selecting happens on pointerdown; the click that follows is a
+             * separate event, so stopping propagation there never reached
+             * this handler — it fired anyway and deselected whatever had
+             * just been picked. Which is why nothing on the canvas could be
+             * selected at all, only via the layers list.
+             */
+            if (e.target !== e.currentTarget) return;
             onSelect(null);
             setEditingId(null);
           }}

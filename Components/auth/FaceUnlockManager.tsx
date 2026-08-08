@@ -8,11 +8,18 @@ import { Skeleton } from "@/Components/ui/Skeleton";
 import ConfirmationModal from "@/Components/dashboard/ConfirmationModal";
 import FaceScanner, { type ScanStep } from "./FaceScanner";
 
+/**
+ * No blink step during enrolment.
+ *
+ * Whoever is enrolling has already signed in, so liveness proves nothing
+ * here — it only added a step that could fail. The blink check lives where
+ * it matters: signing in.
+ */
 const ENROL_STEPS: ScanStep[] = [
   { id: "front", prompt: "Look straight at the camera" },
   { id: "left", prompt: "Turn your head slightly left" },
   { id: "right", prompt: "Turn your head slightly right" },
-  { id: "blink", prompt: "Look straight again", requireBlink: true },
+  { id: "close", prompt: "Look straight again, slightly closer" },
 ];
 
 interface ProfileInfo {

@@ -59,13 +59,25 @@ export default function ElementPicker() {
     };
 
     const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+
+      /**
+       * Nothing navigates or submits while the page is being edited — not
+       * even links the picker won't claim, like the ones inside text
+       * elements. Losing the page mid-edit throws away unsaved changes.
+       */
+      if (target && !isEditorChrome(target)) {
+        if (target.closest("a[href], button[type='submit'], form")) {
+          e.preventDefault();
+        }
+      }
+
       const el = resolve(e, e.altKey);
       if (!el) return;
 
       const path = getElementPath(el);
       if (!path) return;
 
-      // Stop the page from navigating/submitting while we're editing it
       e.preventDefault();
       e.stopPropagation();
 

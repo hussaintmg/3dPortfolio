@@ -329,6 +329,34 @@ export default function DashboardInvoices() {
           rowKey={(r) => r._id}
           loading={loading}
           emptyMessage="No invoices yet — create your first one above."
+          gridCols={3}
+          renderCard={(inv: any) => (
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white truncate">
+                    {inv.number || inv.invoiceNumber || "Invoice"}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 truncate">
+                    {inv.clientName || inv.client?.username || "—"}
+                  </p>
+                </div>
+                <span className="shrink-0 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-400">
+                  {inv.status || "draft"}
+                </span>
+              </div>
+              <p className="text-2xl font-black text-white tracking-tighter tabular-nums">
+                {inv.currency || "USD"} {Number(inv.total ?? 0).toLocaleString()}
+              </p>
+              <p className="text-[10px] font-bold text-gray-600">
+                {inv.dueDate
+                  ? `Due ${new Date(inv.dueDate).toLocaleDateString()}`
+                  : inv.createdAt
+                    ? `Created ${new Date(inv.createdAt).toLocaleDateString()}`
+                    : ""}
+              </p>
+            </div>
+          )}
         />
       </div>
 

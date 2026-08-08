@@ -33,6 +33,25 @@ const UserSchema = new Schema(
       enum: ["owner", "admin", "user"],
       default: "user",
     },
+    /** Profile details the user maintains themselves. */
+    avatarUrl: { type: String, default: "" },
+    avatarStorageKey: { type: String, default: "" },
+    fullName: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    company: { type: String, default: "" },
+    country: { type: String, default: "" },
+    bio: { type: String, default: "" },
+
+    /**
+     * Email ownership. Unverified accounts still work — locking people out
+     * of a portfolio site over an unread email helps nobody — but anything
+     * that emails them can check this first.
+     */
+    emailVerified: { type: Boolean, default: false },
+    emailVerifiedAt: { type: Date, default: null },
+    /** Guards against someone hammering the resend button. */
+    verificationSentAt: { type: Date, default: null },
+
     status: {
       type: String,
       enum: ["pending", "approved", "suspended"],

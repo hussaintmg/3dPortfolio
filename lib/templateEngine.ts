@@ -8,6 +8,22 @@ import SiteSettings from "@/models/SiteSettings";
 
 /** Built-in variables seeded on first use so the palette is never empty. */
 export const BUILTIN_VARIABLES = [
+  /**
+   * The line items. A list, not a value — it feeds a table element via
+   * `{{table:items}}` and cannot be dropped into a text box. It was missing
+   * from this list entirely, which is why an invoice's table looked like it
+   * had no variable behind it at all.
+   */
+  {
+    key: "items",
+    label: "Invoice line items (list)",
+    group: "Invoice",
+    path: "items",
+    sample: "Design · 1 × 499",
+    description:
+      "Drop a Table element on the page — it renders one row per item automatically.",
+    isArray: true,
+  },
   { key: "client.name", label: "Client name", group: "Client", path: "client.name", sample: "Ayesha Khan" },
   { key: "client.email", label: "Client email", group: "Client", path: "client.email", sample: "ayesha@example.com" },
   { key: "client.username", label: "Client username", group: "Client", path: "client.username", sample: "ayeshak" },

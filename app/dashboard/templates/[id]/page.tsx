@@ -31,6 +31,8 @@ import {
   AlignCenterHorizontal,
   AlignEndHorizontal,
   Settings2,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import axios from "axios";
 import { notify } from "@/lib/notify";
@@ -72,6 +74,9 @@ export default function TemplateEditor({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<Tab>("designer");
+  /** Below `lg` the two side panels open as overlays rather than columns. */
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [zoom, setZoom] = useState(0.7);
 
   const [name, setName] = useState("");
@@ -140,10 +145,14 @@ export default function TemplateEditor({
   const gestureBase = useRef<DesignDoc | null>(null);
   const designRef = useRef(design);
   designRef.current = design;
+  // Read inside writeDesign without making it depend on every keystroke
+  const cssRef = useRef(css);
+  cssRef.current = css;
 
   const writeDesign = useCallback((next: DesignDoc) => {
     setDesign(next);
-    setHtml(designToHtml(next, ""));
+    // Keep the owner's Extra CSS — regenerating with "" silently dropped it
+    setHtml(designToHtml(next, cssRef.current));
     setEngine("designer");
     setSyncOk(true);
   }, []);
@@ -739,19 +748,63 @@ export default function TemplateEditor({
       </header>
 
       {/* Body */}
-      <div className="flex-1 flex min-h-0">
-        {/* Variables palette */}
-        <aside className="w-60 shrink-0 border-r border-white/8 bg-[#0d0d14] overflow-y-auto custom-scrollbar" data-lenis-prevent>
-          <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
-            <Braces size={13} className="text-accent" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-white">
-              Variables
+      <div className="flex-1 flex min-h-0 relative">
+        {/* Small screens get the side panels as overlays instead of columns */}
+        <div className="lg:hidden absolute top-2 left-2 z-40 flex gap-2">
+          <button
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="px-3 py-2 rounded-xl bg-[#0d0d14] border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-300 cursor-pointer"
+          >
+            Layers
+          </button>
+          {tab === "designer" && type === "pdf" && (
+            <button
+              onClick={() => setInspectorOpen((v) => !v)}
+              className="px-3 py-2 rounded-xl bg-[#0d0d14] border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-300 cursor-pointer"
+            >
+              Properties
+            </button>
+          )}
+        </div>
+
+        {/* Variables palette + layers.
+            A flex column with each half owning its own scroll: the layers
+            list used to sit under a fixed 38vh variables block, so on a
+            laptop the elements below the fold — the invoice's items table
+            among them — simply weren't reachable. */}
+        <aside
+          className={`${sidebarOpen ? "flex" : "hidden"} lg:flex absolute lg:static inset-y-0 left-0 z-30 w-64 lg:w-60 shrink-0 flex-col border-r border-white/8 bg-[#0d0d14] min-h-0`}
+          data-lenis-prevent
+        >
+          <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between gap-2 shrink-0">
+            <span className="flex items-center gap-2">
+              <Braces size={13} className="text-accent" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-white">
+                Variables
+              </span>
+              <span className="text-[9px] font-black text-gray-600 tabular-nums">
+                {variables.length}
+              </span>
             </span>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1 rounded text-gray-500 hover:text-white cursor-pointer"
+              aria-label="Close panel"
+            >
+              <X size={14} />
+            </button>
           </div>
-          <p className="px-4 py-3 text-[10px] text-gray-600 font-medium leading-relaxed">
-            Drag onto an element, or into any text box, to insert its token.
-          </p>
-          <div className="pb-4 max-h-[38vh] overflow-y-auto custom-scrollbar">
+
+          <div className="shrink-0 min-h-0 max-h-[34vh] overflow-y-auto custom-scrollbar border-b border-white/8">
+            <p className="px-4 py-2.5 text-[10px] text-gray-600 font-medium leading-relaxed">
+              Drag onto an element, or into any text box.
+            </p>
+            {variables.length === 0 && (
+              <p className="px-4 pb-3 text-[10px] font-bold text-amber-400">
+                No variables defined yet — add them under Dashboard →
+                Variables.
+              </p>
+            )}
             {variables.map((v) => (
               <div
                 key={v.key}
@@ -763,8 +816,13 @@ export default function TemplateEditor({
                 }}
                 className="px-4 py-2 hover:bg-white/5 cursor-grab active:cursor-grabbing border-l-2 border-transparent hover:border-accent transition-colors"
               >
-                <p className="text-[11px] font-black text-white truncate">
+                <p className="text-[11px] font-black text-white truncate flex items-center gap-1.5">
                   {`{{${v.key}}}`}
+                  {v.isArray && (
+                    <span className="px-1 rounded bg-amber-500/15 border border-amber-500/25 text-amber-400 text-[8px] font-black uppercase tracking-widest">
+                      list
+                    </span>
+                  )}
                 </p>
                 <p className="text-[9px] text-gray-600 font-medium truncate">
                   {v.resolved || v.sample || v.label}
@@ -774,13 +832,15 @@ export default function TemplateEditor({
           </div>
 
           {type === "pdf" && (
-            <LayersPanel
-              elements={design.elements}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onReorder={reorderLayer}
-              onPatch={patchById}
-            />
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+              <LayersPanel
+                elements={design.elements}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onReorder={reorderLayer}
+                onPatch={patchById}
+              />
+            </div>
           )}
         </aside>
 
@@ -795,12 +855,17 @@ export default function TemplateEditor({
               onChange={liveDesign}
               onCommit={commitGesture}
             />
-            <ElementInspector
-              element={selected}
-              onChange={patchSelected}
-              onDelete={deleteSelected}
-              onDuplicate={duplicateSelected}
-            />
+            <div
+              className={`${inspectorOpen ? "flex" : "hidden"} lg:flex absolute lg:static inset-y-0 right-0 z-30 shrink-0`}
+            >
+              <ElementInspector
+                element={selected}
+                onChange={patchSelected}
+                onDelete={deleteSelected}
+                onDuplicate={duplicateSelected}
+                onClose={() => setInspectorOpen(false)}
+              />
+            </div>
           </>
         )}
 
@@ -814,6 +879,38 @@ export default function TemplateEditor({
 
         {tab === "html" && (
           <div className="flex-1 flex flex-col min-w-0">
+            {/* Say plainly which of the two is the source of truth — it was
+                never obvious whether the designer's work was reflected here. */}
+            <div
+              className={`px-5 py-2.5 border-b border-white/8 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
+                engine === "designer"
+                  ? "bg-accent/8 text-accent"
+                  : syncOk
+                    ? "bg-white/5 text-gray-400"
+                    : "bg-amber-500/8 text-amber-400"
+              }`}
+            >
+              {engine === "designer" ? (
+                <>
+                  <RefreshCw size={11} />
+                  Mirroring the designer · {design.elements.length} elements
+                  <button
+                    onClick={() => setHtml(designToHtml(design, css))}
+                    className="ml-auto px-2.5 py-1 rounded-lg border border-current/30 hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    Regenerate
+                  </button>
+                </>
+              ) : syncOk ? (
+                <>Hand-edited · the designer still mirrors this</>
+              ) : (
+                <>
+                  Hand-edited · too custom for the designer to mirror, so the
+                  canvas is no longer authoritative
+                </>
+              )}
+            </div>
+
             {type === "email" && (
               <div className="px-5 py-3 border-b border-white/8">
                 <input

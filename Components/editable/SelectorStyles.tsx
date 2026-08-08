@@ -15,21 +15,46 @@ import { cssText } from "@/lib/elementPath";
 export default function SelectorStyles() {
   const { styles, getStyle, getLink, links, contentVersion } = useSite();
 
-  const selectorKeys = useMemo(
-    () => Object.keys(styles).filter((k) => k.startsWith("sel:")),
+  const emittedKeys = useMemo(
+    () =>
+      Object.keys(styles).filter(
+        (k) => k.startsWith("sel:") || k.endsWith("::hover"),
+      ),
     [styles],
   );
+
+  /**
+   * Turns a stored key into the CSS selector it addresses.
+   *
+   * `sel:` keys already carry a selector. Everything else is a component's
+   * editable key, which only exists in the DOM as a data attribute — the
+   * normal styles for those go through the component's `style` prop, but a
+   * `:hover` state has no inline equivalent, so it has to come from here.
+   */
+  const toSelector = (key: string): string | null => {
+    const hover = key.endsWith("::hover");
+    const base = hover ? key.slice(0, -7) : key;
+    const target = base.startsWith("sel:")
+      ? base.slice(4)
+      : `[data-editable-key="${CSS.escape(base)}"]`;
+    if (!target) return null;
+    return hover ? `${target}:hover` : target;
+  };
 
   // Pending (unsaved) picks need painting too, so read through getStyle
   const sheet = useMemo(() => {
     const rules: string[] = [];
-    for (const key of selectorKeys) {
+    for (const key of emittedKeys) {
+      // A component key with no hover suffix already styles itself inline
+      if (!key.startsWith("sel:") && !key.endsWith("::hover")) continue;
+      const selector = toSelector(key);
+      if (!selector) continue;
       const body = cssText((getStyle(key) || {}) as Record<string, string>);
-      if (body) rules.push(`${key.slice(4)}{${body}}`);
+      if (body) rules.push(`${selector}{${body}}`);
     }
     return rules.join("\n");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectorKeys, contentVersion, getStyle]);
+  }, [emittedKeys, contentVersion, getStyle]);
 
   /**
    * Links can't be expressed in CSS, so selector-keyed link overrides are

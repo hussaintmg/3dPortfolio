@@ -2,6 +2,22 @@ import { NextResponse } from "next/server";
 import { signToken } from "@/lib/auth";
 import { findUser, createUser } from "@/lib/userHelper";
 import { guardRate } from "@/lib/rateLimit";
+import { sendTemplatedEmail } from "@/lib/email";
+import {
+  createVerificationToken,
+  verificationEmailHtml,
+} from "@/lib/emailVerification";
+import { webData } from "@/constants/webData";
+
+/** Origin of this request, so the link works on any host or port. */
+function selfOrigin(req: Request) {
+  const host = req.headers.get("host");
+  if (!host) return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const proto =
+    req.headers.get("x-forwarded-proto") ||
+    (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
+  return `${proto}://${host}`;
+}
 
 export async function POST(req: Request) {
   try {
@@ -62,10 +78,42 @@ export async function POST(req: Request) {
       status: user.status,
     });
 
+    /**
+     * Confirmation email, sent but never waited on.
+     * A mail server having a bad day must not fail a registration that has
+     * already succeeded — the account works either way, and the link can be
+     * resent from the profile screen.
+     */
+    let verificationSent = false;
+    try {
+      const jwt = await createVerificationToken({
+        sub: user._id.toString(),
+        email: user.email,
+      });
+      const url = `${await selfOrigin(req)}/verify-email?token=${encodeURIComponent(jwt)}`;
+      await sendTemplatedEmail({
+        to: user.email,
+        subject: `Confirm your email · ${webData.websiteName}`,
+        html: verificationEmailHtml({
+          name: user.username || "there",
+          url,
+          siteName: webData.websiteName,
+        }),
+      });
+      user.verificationSentAt = new Date();
+      await user.save();
+      verificationSent = true;
+    } catch {
+      // logged nowhere on purpose: the address may simply be undeliverable
+    }
+
     const response = NextResponse.json({
       success: true,
       message: "Registration successful",
-      desc: "Welcome to the Nexus",
+      desc: verificationSent
+        ? "Check your inbox to confirm your email"
+        : "Welcome to the Nexus",
+      verificationSent,
       user: { username: user.username, email: user.email, role: user.role },
     });
 

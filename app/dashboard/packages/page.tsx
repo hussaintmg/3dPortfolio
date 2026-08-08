@@ -252,8 +252,8 @@ export default function DashboardPackages() {
       <div className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
           <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl lg:text-5xl font-black text-gray-900 tracking-tighter flex items-center gap-4">
-              <div className="size-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-accent border border-indigo-100">
+            <h1 className="text-2xl sm:text-3xl lg:text-5xl font-black text-white tracking-tighter flex items-center gap-4">
+              <div className="size-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent border border-accent/20">
                   <Package size={26} />
               </div>
               Product Lineup
@@ -263,7 +263,7 @@ export default function DashboardPackages() {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => setCustomOpen(true)}
-              className="flex items-center justify-center gap-2.5 bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 font-black text-xs py-4 px-7 rounded-2xl transition-all active:scale-95 uppercase tracking-widest cursor-pointer"
+              className="flex items-center justify-center gap-2.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 font-black text-xs py-4 px-7 rounded-2xl transition-all active:scale-95 uppercase tracking-widest cursor-pointer"
             >
               <Sparkles size={17} />
               Custom for a client
@@ -273,7 +273,7 @@ export default function DashboardPackages() {
                 resetForm();
                 setIsModalOpen(true);
               }}
-              className="flex items-center justify-center gap-3 bg-gray-900 hover:bg-black text-white font-black text-xs py-4 px-8 rounded-2xl transition-all shadow-xl shadow-gray-900/10 active:scale-95 uppercase tracking-widest cursor-pointer"
+              className="flex items-center justify-center gap-3 bg-white hover:bg-gray-200 text-background font-black text-xs py-4 px-8 rounded-2xl transition-all shadow-xl shadow-black/40 active:scale-95 uppercase tracking-widest cursor-pointer"
             >
               <Plus size={20} />
               Initialize Package
@@ -294,21 +294,21 @@ export default function DashboardPackages() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="mb-10 p-6 rounded-3xl bg-indigo-50 border border-indigo-100 flex flex-wrap items-center justify-between gap-6 shadow-sm shadow-indigo-600/5 ring-1 ring-indigo-50/50"
+              className="mb-10 p-6 rounded-3xl bg-accent/10 border border-accent/20 flex flex-wrap items-center justify-between gap-6 shadow-sm shadow-indigo-600/5 ring-1 ring-indigo-50/50"
             >
               <div className="flex items-center gap-6">
-                <span className="text-gray-900 font-black text-xs uppercase tracking-widest">
+                <span className="text-white font-black text-xs uppercase tracking-widest">
                   {selectedIds.length} Selections Active
                 </span>
                 <div className="h-8 w-px bg-indigo-200" />
                 <div className="flex items-center gap-3">
-                  <div className="size-8 rounded-lg bg-white flex items-center justify-center text-accent border border-indigo-100 shadow-sm">
+                  <div className="size-8 rounded-lg bg-card flex items-center justify-center text-accent border border-accent/20 shadow-sm">
                       <Percent size={14} className="font-black" />
                   </div>
                   <input
                     type="number"
                     placeholder="Batch Discount %"
-                    className="bg-white border border-indigo-100 rounded-xl px-4 py-2 text-xs font-bold w-40 focus:ring-4 focus:ring-indigo-100 outline-none text-gray-900 placeholder-gray-400"
+                    className="bg-card border border-accent/20 rounded-xl px-4 py-2 text-xs font-bold w-40 focus:ring-4 focus:ring-accent/20 outline-none text-white placeholder-gray-500"
                     value={bulkDiscount}
                     onChange={(e) => setBulkDiscount(Number(e.target.value))}
                   />
@@ -331,14 +331,14 @@ export default function DashboardPackages() {
         </AnimatePresence>
 
         {/* List View */}
-        <div className="hidden lg:block overflow-hidden rounded-4xl border border-gray-100 bg-white shadow-sm">
+        <div className="hidden lg:block overflow-hidden rounded-4xl border border-white/8 bg-card shadow-sm">
           <table className="w-full text-left">
-            <thead className="bg-gray-50/50 border-b border-gray-50">
+            <thead className="bg-white/5/50 border-b border-gray-50">
               <tr>
                 <th className="px-8 py-5">
                   <input
                     type="checkbox"
-                    className="size-5 rounded-lg border-gray-200 bg-white text-accent focus:ring-accent"
+                    className="size-5 rounded-lg border-white/10 bg-card text-accent focus:ring-accent"
                     checked={selectedIds.length === packages.length}
                     onChange={(e) =>
                       setSelectedIds(
@@ -365,12 +365,12 @@ export default function DashboardPackages() {
               {packages.map((pkg) => (
                 <tr
                   key={pkg._id}
-                  className="group hover:bg-indigo-50/30 transition-all transition-colors"
+                  className="group hover:bg-accent/10/30 transition-all transition-colors"
                 >
                   <td className="px-8 py-6">
                     <input
                       type="checkbox"
-                      className="size-5 rounded-lg border-gray-200 bg-white text-accent focus:ring-accent"
+                      className="size-5 rounded-lg border-white/10 bg-card text-accent focus:ring-accent"
                       checked={selectedIds.includes(pkg._id)}
                       onChange={(e) => {
                         if (e.target.checked)
@@ -384,7 +384,7 @@ export default function DashboardPackages() {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-5">
-                      <div className="size-12 rounded-2xl bg-gray-50 flex items-center justify-center border border-gray-100 group-hover:border-indigo-100 group-hover:text-accent transition-colors shadow-sm text-gray-400">
+                      <div className="size-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/8 group-hover:border-accent/20 group-hover:text-accent transition-colors shadow-sm text-gray-400">
                         {pkg.media[0]?.type === "video" ? (
                           <VideoIcon size={22} />
                         ) : (
@@ -392,11 +392,11 @@ export default function DashboardPackages() {
                         )}
                       </div>
                       <div>
-                        <h3 className="font-bold text-gray-900 group-hover:text-accent transition-colors tracking-tight text-lg">
+                        <h3 className="font-bold text-white group-hover:text-accent transition-colors tracking-tight text-lg">
                           {pkg.name}
                         </h3>
                         {pkg.isCustom && (
-                          <span className="text-[9px] bg-indigo-50 text-accent px-2 py-0.5 rounded-lg border border-indigo-100 uppercase font-black tracking-widest mt-1 inline-block shadow-sm">
+                          <span className="text-[9px] bg-accent/10 text-accent px-2 py-0.5 rounded-lg border border-accent/20 uppercase font-black tracking-widest mt-1 inline-block shadow-sm">
                             Bespoke
                           </span>
                         )}
@@ -405,7 +405,7 @@ export default function DashboardPackages() {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex flex-col">
-                      <span className="font-black text-gray-900 text-xl tracking-tighter">
+                      <span className="font-black text-white text-xl tracking-tighter">
                         ${pkg.discountedPrice}
                       </span>
                       {pkg.discountPercent > 0 && (
@@ -427,7 +427,7 @@ export default function DashboardPackages() {
                     <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => openEditModal(pkg)}
-                        className="size-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-indigo-50 hover:text-accent border border-gray-100 transition-all font-bold"
+                        className="size-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-400 hover:bg-accent/10 hover:text-accent border border-white/8 transition-all font-bold"
                       >
                         <Edit size={16} />
                       </button>
@@ -450,26 +450,26 @@ export default function DashboardPackages() {
           {packages.map((pkg) => (
             <div
               key={pkg._id}
-              className="rounded-4xl border border-gray-100 bg-white p-8 shadow-sm"
+              className="rounded-4xl border border-white/8 bg-card p-8 shadow-sm"
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
-                  <div className="size-12 rounded-2xl bg-gray-50 flex items-center justify-center border border-gray-100 text-gray-400">
+                  <div className="size-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/8 text-gray-400">
                     {pkg.media[0]?.type === "video" ? (
                       <VideoIcon size={22} />
                     ) : (
                       <ImageIcon size={22} />
                     )}
                   </div>
-                  <h3 className="font-black text-gray-900 tracking-tight text-xl">{pkg.name}</h3>
+                  <h3 className="font-black text-white tracking-tight text-xl">{pkg.name}</h3>
                 </div>
                 <input
                   type="checkbox"
-                  className="size-6 rounded-lg border-gray-200 bg-white text-accent focus:ring-accent"
+                  className="size-6 rounded-lg border-white/10 bg-card text-accent focus:ring-accent"
                 />
               </div>
               <div className="flex items-baseline gap-4 mb-8">
-                <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 tracking-tighter">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tighter">
                   ${pkg.discountedPrice}
                 </span>
                 {pkg.discountPercent > 0 && (
@@ -481,7 +481,7 @@ export default function DashboardPackages() {
               <div className="flex gap-4">
                 <button
                   onClick={() => openEditModal(pkg)}
-                  className="flex-1 flex items-center justify-center gap-3 rounded-2xl bg-gray-900 text-white py-4.5 font-black text-xs uppercase tracking-widest shadow-xl shadow-gray-900/10"
+                  className="flex-1 flex items-center justify-center gap-3 rounded-2xl bg-white text-background py-4.5 font-black text-xs uppercase tracking-widest shadow-xl shadow-black/40"
                 >
                   <Edit size={18} /> Modify
                 </button>
@@ -512,18 +512,18 @@ export default function DashboardPackages() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[3rem] border border-gray-100 bg-white p-10 lg:p-14 shadow-2xl shadow-indigo-600/5"
+              className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[3rem] border border-white/8 bg-card p-10 lg:p-14 shadow-2xl shadow-indigo-600/5"
             >
               <div className="flex items-center justify-between mb-12">
-                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tighter flex items-center gap-4">
-                  <div className="size-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-accent border border-indigo-100 shadow-sm">
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tighter flex items-center gap-4">
+                  <div className="size-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent border border-accent/20 shadow-sm">
                     {editingPkg ? <Edit size={26} /> : <Plus size={26} />}
                   </div>
                   {editingPkg ? "Override Configuration" : "Deploy New Module"}
                 </h2>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="size-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all font-bold"
+                  className="size-12 rounded-2xl bg-white/5 border border-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-all font-bold"
                 >
                   <X size={24} />
                 </button>
@@ -539,7 +539,7 @@ export default function DashboardPackages() {
                       <input
                         type="text"
                         required
-                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-5 text-gray-900 focus:border-accent focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-medium text-sm"
+                        className="w-full bg-white/5 border border-white/8 rounded-2xl px-6 py-5 text-white focus:border-accent focus:ring-4 focus:ring-accent/20 outline-none transition-all font-medium text-sm"
                         placeholder="e.g. Enterprise Foundation"
                         value={formData.name}
                         onChange={(e) =>
@@ -554,7 +554,7 @@ export default function DashboardPackages() {
                       <textarea
                         required
                         rows={4}
-                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-5 text-gray-900 focus:border-accent focus:ring-4 focus:ring-indigo-50 outline-none transition-all resize-none font-medium text-sm leading-relaxed"
+                        className="w-full bg-white/5 border border-white/8 rounded-2xl px-6 py-5 text-white focus:border-accent focus:ring-4 focus:ring-accent/20 outline-none transition-all resize-none font-medium text-sm leading-relaxed"
                         placeholder="Define integrated service parameters..."
                         value={formData.description}
                         onChange={(e) =>
@@ -573,7 +573,7 @@ export default function DashboardPackages() {
                         <input
                           type="text"
                           required
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-5 text-gray-900 focus:border-accent focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-medium text-sm"
+                          className="w-full bg-white/5 border border-white/8 rounded-2xl px-6 py-5 text-white focus:border-accent focus:ring-4 focus:ring-accent/20 outline-none transition-all font-medium text-sm"
                           placeholder="e.g. 14 Deployment Days"
                           value={formData.duration}
                           onChange={(e) =>
@@ -588,7 +588,7 @@ export default function DashboardPackages() {
                         <label className="flex items-center gap-4 group cursor-pointer">
                           <input
                             type="checkbox"
-                            className="size-7 rounded-xl bg-gray-50 border-gray-100 text-accent focus:ring-0 checked:bg-accent"
+                            className="size-7 rounded-xl bg-white/5 border-white/8 text-accent focus:ring-0 checked:bg-accent"
                             checked={formData.isCustom}
                             onChange={(e) =>
                               setFormData({
@@ -597,7 +597,7 @@ export default function DashboardPackages() {
                               })
                             }
                           />
-                          <span className="text-xs font-black text-gray-400 group-hover:text-gray-900 transition-colors uppercase tracking-widest">
+                          <span className="text-xs font-black text-gray-400 group-hover:text-white transition-colors uppercase tracking-widest">
                             Bespoke Logic
                           </span>
                         </label>
@@ -605,7 +605,7 @@ export default function DashboardPackages() {
                     </div>
 
                     {/* Badge / Featured / Order — controls home page display */}
-                    <div className="rounded-3xl border border-indigo-100 bg-indigo-50/40 p-6 space-y-6">
+                    <div className="rounded-3xl border border-accent/20 bg-accent/10/40 p-6 space-y-6">
                       <label className="text-[10px] font-black text-accent uppercase tracking-widest block">
                         Homepage Display
                       </label>
@@ -616,7 +616,7 @@ export default function DashboardPackages() {
                           </label>
                           <input
                             type="text"
-                            className="w-full bg-white border border-gray-100 rounded-2xl px-5 py-4 text-gray-900 focus:border-accent focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-medium text-sm"
+                            className="w-full bg-card border border-white/8 rounded-2xl px-5 py-4 text-white focus:border-accent focus:ring-4 focus:ring-accent/20 outline-none transition-all font-medium text-sm"
                             placeholder="Leave empty for no badge"
                             value={formData.badge}
                             onChange={(e) =>
@@ -630,7 +630,7 @@ export default function DashboardPackages() {
                           </label>
                           <input
                             type="number"
-                            className="w-full bg-white border border-gray-100 rounded-2xl px-5 py-4 text-gray-900 focus:border-accent outline-none transition-all font-black text-sm"
+                            className="w-full bg-card border border-white/8 rounded-2xl px-5 py-4 text-white focus:border-accent outline-none transition-all font-black text-sm"
                             value={formData.order}
                             onChange={(e) =>
                               setFormData({
@@ -643,7 +643,7 @@ export default function DashboardPackages() {
                         <label className="flex items-center gap-3 pb-4 group cursor-pointer">
                           <input
                             type="checkbox"
-                            className="size-6 rounded-lg bg-white border-gray-200 text-accent focus:ring-0 checked:bg-accent"
+                            className="size-6 rounded-lg bg-card border-white/10 text-accent focus:ring-0 checked:bg-accent"
                             checked={formData.featured}
                             onChange={(e) =>
                               setFormData({
@@ -652,7 +652,7 @@ export default function DashboardPackages() {
                               })
                             }
                           />
-                          <span className="text-[10px] font-black text-gray-500 group-hover:text-gray-900 transition-colors uppercase tracking-widest">
+                          <span className="text-[10px] font-black text-gray-500 group-hover:text-white transition-colors uppercase tracking-widest">
                             Feature on Home (top 3)
                           </span>
                         </label>
@@ -661,7 +661,7 @@ export default function DashboardPackages() {
                   </div>
 
                   <div className="space-y-12">
-                    <div className="rounded-4xl border border-gray-100 bg-gray-50/50 p-10 relative shadow-sm overflow-hidden">
+                    <div className="rounded-4xl border border-white/8 bg-white/5/50 p-10 relative shadow-sm overflow-hidden">
                       <div className="absolute top-0 right-0 p-4">
                           <Tag size={40} className="text-gray-100 -rotate-12" />
                       </div>
@@ -676,7 +676,7 @@ export default function DashboardPackages() {
                           <input
                             type="number"
                             required
-                            className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 text-gray-900 focus:border-accent outline-none transition-all text-2xl font-black tracking-tighter shadow-sm"
+                            className="w-full bg-card border border-white/8 rounded-2xl px-6 py-4 text-white focus:border-accent outline-none transition-all text-2xl font-black tracking-tighter shadow-sm"
                             value={formData.price}
                             onChange={(e) =>
                               handlePriceChange(Number(e.target.value), "base")
@@ -690,7 +690,7 @@ export default function DashboardPackages() {
                             </label>
                             <input
                               type="number"
-                              className="w-full bg-white border border-gray-100 rounded-2xl px-5 py-4 text-accent focus:border-accent outline-none transition-all font-black text-lg shadow-sm"
+                              className="w-full bg-card border border-white/8 rounded-2xl px-5 py-4 text-accent focus:border-accent outline-none transition-all font-black text-lg shadow-sm"
                               value={formData.discountPercent}
                               min={0}
                               max={100}
@@ -708,7 +708,7 @@ export default function DashboardPackages() {
                             </label>
                             <input
                               type="number"
-                              className="w-full bg-white border border-indigo-200 rounded-2xl px-5 py-4 text-green-600 focus:border-accent outline-none transition-all font-black text-lg shadow-sm"
+                              className="w-full bg-card border border-indigo-200 rounded-2xl px-5 py-4 text-green-600 focus:border-accent outline-none transition-all font-black text-lg shadow-sm"
                               value={Math.round(formData.discountedPrice)}
                               onChange={(e) =>
                                 handlePriceChange(
@@ -741,7 +741,7 @@ export default function DashboardPackages() {
                             <input
                               type="text"
                               required
-                              className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-5 py-3 text-sm font-medium focus:border-accent outline-none transition-all"
+                              className="flex-1 bg-white/5 border border-white/8 rounded-xl px-5 py-3 text-sm font-medium focus:border-accent outline-none transition-all"
                               value={feat}
                               onChange={(e) =>
                                 updateFeature(idx, e.target.value)
@@ -750,7 +750,7 @@ export default function DashboardPackages() {
                             <button
                               type="button"
                               onClick={() => removeFeature(idx)}
-                              className="size-11 rounded-xl bg-gray-50 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all border border-gray-100"
+                              className="size-11 rounded-xl bg-white/5 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all border border-white/8"
                             >
                               <Trash size={18} />
                             </button>
@@ -770,7 +770,7 @@ export default function DashboardPackages() {
                     <button
                       type="button"
                       onClick={handleMediaUpload}
-                      className="flex items-center gap-3 rounded-2xl bg-indigo-50 border border-indigo-100 px-8 py-3.5 text-[10px] font-black text-accent hover:bg-accent hover:text-white transition-all uppercase tracking-widest shadow-sm"
+                      className="flex items-center gap-3 rounded-2xl bg-accent/10 border border-accent/20 px-8 py-3.5 text-[10px] font-black text-accent hover:bg-accent hover:text-white transition-all uppercase tracking-widest shadow-sm"
                     >
                       <ImageIcon size={18} />
                       Inject Asset
@@ -782,10 +782,10 @@ export default function DashboardPackages() {
                       {formData.media.map((m, idx) => (
                         <div
                           key={idx}
-                          className="relative group aspect-square rounded-3xl overflow-hidden border border-gray-100 bg-gray-50 shadow-sm"
+                          className="relative group aspect-square rounded-3xl overflow-hidden border border-white/8 bg-white/5 shadow-sm"
                         >
                           {m.type === "video" ? (
-                            <div className="w-full h-full flex items-center justify-center bg-indigo-50/50">
+                            <div className="w-full h-full flex items-center justify-center bg-accent/10/50">
                               <VideoIcon size={32} className="text-gray-300 group-hover:text-accent transition-colors" />
                             </div>
                           ) : (
@@ -812,7 +812,7 @@ export default function DashboardPackages() {
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-[2.5rem] border-2 border-dashed border-gray-100 bg-gray-50/50 p-16 text-center">
+                    <div className="rounded-[2.5rem] border-2 border-dashed border-white/8 bg-white/5/50 p-16 text-center">
                       <ImageIcon
                         className="mx-auto mb-6 text-gray-200"
                         size={64}
@@ -824,17 +824,17 @@ export default function DashboardPackages() {
                   )}
                 </div>
 
-                <div className="flex gap-6 pt-12 border-t border-gray-100 mt-12">
+                <div className="flex gap-6 pt-12 border-t border-white/8 mt-12">
                   <button
                     type="submit"
-                    className="flex-1 bg-gray-900 hover:bg-black text-white text-xs font-black py-5.5 rounded-3xl shadow-xl shadow-gray-900/10 active:scale-[0.98] transition-all uppercase tracking-widest"
+                    className="flex-1 bg-white hover:bg-gray-200 text-background text-xs font-black py-5.5 rounded-3xl shadow-xl shadow-black/40 active:scale-[0.98] transition-all uppercase tracking-widest"
                   >
                     {editingPkg ? "Override Specification" : "Finalize Deployment"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-14 rounded-3xl bg-gray-50 border border-gray-100 font-black text-xs text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-all uppercase tracking-widest"
+                    className="px-14 rounded-3xl bg-white/5 border border-white/8 font-black text-xs text-gray-400 hover:text-white hover:bg-white/8 transition-all uppercase tracking-widest"
                   >
                     Abort
                   </button>
