@@ -109,8 +109,10 @@ export default function DashboardChatPage() {
   });
 
   return (
-    <div className="h-screen flex flex-col p-4 sm:p-6 gap-4">
-      <header className="flex items-center gap-4 shrink-0">
+    // No gutter on a phone: a chat is the whole screen there, and 16px of
+    // padding each side is 32px of message width given away.
+    <div className="h-screen flex flex-col p-0 sm:p-6 gap-3 sm:gap-4">
+      <header className="flex items-center gap-4 shrink-0 px-4 pt-4 sm:px-0 sm:pt-0">
         <div className="size-11 rounded-xl bg-card flex items-center justify-center text-accent border border-white/10">
           <MessageSquare size={20} />
         </div>
@@ -122,10 +124,10 @@ export default function DashboardChatPage() {
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-0 sm:gap-4">
         {/* Conversation list */}
         <div
-          className={`rounded-3xl border border-white/10 bg-card flex-col min-h-0 overflow-hidden ${active ? "hidden lg:flex" : "flex"}`}
+          className={`sm:rounded-3xl border-t sm:border border-white/10 bg-card flex-col min-h-0 overflow-hidden ${active ? "hidden lg:flex" : "flex"}`}
         >
           <div className="p-4 border-b border-white/5">
             <FloatingInput

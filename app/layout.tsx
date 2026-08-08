@@ -21,6 +21,7 @@ import SiteStyle from "@/models/SiteStyle";
 import SiteLink from "@/models/SiteLink";
 import SiteAnimation from "@/models/SiteAnimation";
 import { verifyToken } from "@/lib/auth";
+import { getSeoProfile, buildJsonLd, SITE_URL } from "@/lib/seo";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const poppins = Poppins({
@@ -98,25 +99,70 @@ async function getSiteData() {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const fallback: Metadata = {
-    title: `${webData.websiteName} | Portfolio`,
-    description: webData.hero.subheading,
+  const p = await getSeoProfile();
+  const s: any = await SiteSettings.findOne({ key: "global" })
+    .lean()
+    .catch(() => null);
+
+  return {
+    // Without this, Next emits relative og:image/canonical URLs, which most
+    // crawlers and every social scraper ignore.
+    metadataBase: new URL(SITE_URL),
+    title: {
+      default: p.title,
+      // Sub-pages set their own title and inherit the brand suffix
+      template: `%s · ${p.siteName}`,
+    },
+    description: p.description,
+    applicationName: p.siteName,
+    authors: [{ name: p.personName, url: SITE_URL }],
+    creator: p.personName,
+    publisher: p.personName,
+    keywords: [
+      "AI engineer",
+      "full-stack web developer",
+      "Next.js developer",
+      "React developer",
+      "freelance web developer",
+      "LLM application developer",
+      "web developer Pakistan",
+      p.siteName,
+      `${p.personName} portfolio`,
+    ],
+    alternates: { canonical: "/" },
+    openGraph: {
+      type: "profile",
+      url: SITE_URL,
+      siteName: p.siteName,
+      title: p.title,
+      description: p.description,
+      images: [{ url: p.imageUrl, width: 512, height: 512, alt: p.siteName }],
+      locale: "en_US",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: p.title,
+      description: p.description,
+      images: [p.imageUrl],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
+    },
+    ...(s?.faviconUrl
+      ? { icons: { icon: s.faviconUrl, shortcut: s.faviconUrl } }
+      : {}),
+    ...(process.env.GOOGLE_SITE_VERIFICATION
+      ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+      : {}),
   };
-  try {
-    await dbConnect();
-    const s: any = await SiteSettings.findOne({ key: "global" }).lean();
-    if (!s) return fallback;
-    const name = s.websiteName || webData.websiteName;
-    return {
-      title: s.title || `${name} | Portfolio`,
-      description: s.description || webData.hero.subheading,
-      ...(s.faviconUrl
-        ? { icons: { icon: s.faviconUrl, shortcut: s.faviconUrl } }
-        : {}),
-    };
-  } catch {
-    return fallback;
-  }
 }
 
 export default async function RootLayout({
@@ -124,8 +170,9 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [{ settings, content, styles, links, animations }, cookieStore] =
-    await Promise.all([getSiteData(), cookies()]);
+  const [{ settings, content, styles, links, animations }, cookieStore, seo] =
+    await Promise.all([getSiteData(), cookies(), getSeoProfile()]);
+  const jsonLd = buildJsonLd(seo);
 
   // Editing controls are owner-only, so resolve the role on the server
   let isOwner = false;
@@ -178,6 +225,17 @@ export default async function RootLayout({
         <meta name="theme-color" content="#6366f1" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="canonical" href={SITE_URL} />
+        {/*
+          Structured data. Search engines use it for rich results; answer
+          engines use it to state who this is without inferring it from prose,
+          which is the difference between being quoted and being skipped.
+        */}
+        <script
+          type="application/ld+json"
+          // The payload is built from our own settings, never user input
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body
         className={`${inter.variable} ${poppins.variable} font-sans bg-background text-foreground antialiased min-h-screen flex flex-col`}

@@ -456,7 +456,13 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
           </div>
         ) : (
           messages.map((m) => {
-            const own = m.senderId === user.id;
+            /**
+             * The assistant answers on the studio's behalf, so to staff it is
+             * "us" and belongs on their side of the thread. Rendering it as
+             * an incoming message made the owner's own auto-replies look
+             * like something a client had sent.
+             */
+            const own = m.senderId === user.id || (isStaff && !!m.isAi);
             const canDeleteEveryone = own || isStaff;
             return (
               <div key={m._id} className={`flex ${own ? "justify-end" : "justify-start"} group`}>
