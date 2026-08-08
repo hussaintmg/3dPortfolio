@@ -11,25 +11,52 @@ import { notify } from "@/lib/notify";
  * "Sign in with fingerprint / face" — one tap, no password. Renders only when
  * the browser actually supports WebAuthn.
  */
-export default function PasskeyButton() {
+/** WebAuthn only runs on https or localhost — a LAN IP silently fails. */
+const isSecureOrigin = () =>
+  typeof window === "undefined" ||
+  window.isSecureContext ||
+  location.hostname === "localhost" ||
+  location.hostname === "127.0.0.1";
+
+export default function PasskeyButton({
+  /** Optional email/username so we can look up this user's credentials. */
+  identifier,
+}: {
+  identifier?: string;
+}) {
   const router = useRouter();
   const [supported, setSupported] = useState(false);
+  const [insecure, setInsecure] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setSupported(
+    const ok =
       typeof window !== "undefined" &&
-        !!window.PublicKeyCredential &&
-        !!navigator.credentials,
-    );
+      !!window.PublicKeyCredential &&
+      !!navigator.credentials;
+    setSupported(ok);
+    setInsecure(!isSecureOrigin());
   }, []);
 
   if (!supported) return null;
 
   const signIn = async () => {
+    if (insecure) {
+      notify.error(
+        "Not available on this address",
+        "Fingerprint sign-in needs https or localhost. Open the site at localhost instead of the IP.",
+      );
+      return;
+    }
+
     try {
       setBusy(true);
-      const { data: opt } = await axios.get("/api/auth/passkey/authenticate");
+      const query = identifier
+        ? `?identifier=${encodeURIComponent(identifier)}`
+        : "";
+      const { data: opt } = await axios.get(
+        `/api/auth/passkey/authenticate${query}`,
+      );
       if (!opt.success) {
         notify.error("Could not start", opt.message);
         return;
@@ -48,8 +75,15 @@ export default function PasskeyButton() {
         notify.error("Sign-in failed", data.message);
       }
     } catch (err: any) {
-      // A user cancelling the OS prompt is not an error worth shouting about
-      if (err?.name === "NotAllowedError" || err?.name === "AbortError") return;
+      if (err?.name === "AbortError") return;
+      if (err?.name === "NotAllowedError") {
+        // Either the user dismissed it, or no matching passkey was offered
+        notify.warning(
+          "No passkey used",
+          "Cancelled, or this device has no passkey for this site yet. Sign in with your password once, then add the device from Settings.",
+        );
+        return;
+      }
       notify.error(
         "Sign-in failed",
         err.response?.data?.message || err.message || "Please try again",
@@ -69,11 +103,18 @@ export default function PasskeyButton() {
         <span className="h-px flex-1 bg-white/10" />
       </div>
 
+      {insecure && (
+        <p className="text-[10px] font-bold text-amber-400 leading-relaxed text-center">
+          Fingerprint sign-in needs https or localhost — open the site at
+          <span className="text-white"> localhost</span>, not an IP address.
+        </p>
+      )}
+
       <button
         type="button"
         onClick={signIn}
         disabled={busy}
-        className="w-full group flex items-center justify-center gap-3 py-4 rounded-2xl border border-white/12 bg-white/5 hover:bg-white/10 hover:border-accent/40 text-white font-black text-[11px] uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50"
+        className="w-full group flex items-center justify-center gap-3 py-4 rounded-2xl border border-white/12 bg-white/5 hover:bg-white/10 hover:border-accent/40 text-white font-black text-[11px] uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
       >
         {busy ? (
           <Loader2 size={17} className="animate-spin" />

@@ -23,7 +23,7 @@ async function currentUser() {
 }
 
 /** GET — options for enrolling a new fingerprint/face/device credential. */
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await currentUser();
     if (!session)
@@ -37,12 +37,17 @@ export async function GET() {
     const user: any = await User.findById(session.id).select("username email").lean();
     const existing = await Passkey.find({ userId: session.id }).lean();
 
+    const { searchParams } = new URL(req.url);
+    // Default to the built-in sensor (Windows Hello / Touch ID). Passing
+    // ?type=cross means a phone or security key instead.
+    const crossPlatform = searchParams.get("type") === "cross";
+
     const options = await generateRegistrationOptions({
       rpName,
       rpID,
       userID: new TextEncoder().encode(String(session.id)),
       userName: user?.email || user?.username || "user",
-      userDisplayName: user?.username || "user",
+      userDisplayName: user?.displayName || user?.username || "user",
       attestationType: "none",
       // Never enrol the same authenticator twice
       excludeCredentials: existing.map((c: any) => ({
@@ -50,8 +55,20 @@ export async function GET() {
         transports: c.transports,
       })),
       authenticatorSelection: {
-        residentKey: "preferred",
-        userVerification: "preferred",
+        /*
+         * "platform" pins this to the device's own biometric sensor, so the
+         * browser opens Windows Hello / Touch ID directly instead of the
+         * "use a phone or security key" chooser.
+         */
+        authenticatorAttachment: crossPlatform ? "cross-platform" : "platform",
+        /*
+         * REQUIRED (not "preferred") is what makes it a discoverable
+         * credential — without it the sign-in screen has nothing to offer
+         * when the user hasn't typed an email first.
+         */
+        residentKey: "required",
+        requireResidentKey: true,
+        userVerification: "required",
       },
     });
 

@@ -19,15 +19,55 @@ import {
  * offers whatever passkey it holds for this site (discoverable credentials);
  * that is what makes "just use your fingerprint" work with no email typed.
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await dbConnect();
     const { rpID } = await getRpInfo();
+    const { searchParams } = new URL(req.url);
+    const identifier = searchParams.get("identifier")?.trim();
+
+    /*
+     * Normally we send no credential list, so the browser offers whatever
+     * discoverable passkey it holds. If the caller supplies an email or
+     * username we narrow it down — that path also rescues older credentials
+     * that were created before discoverable keys were required.
+     */
+    let allowCredentials: any = undefined;
+    if (identifier) {
+      const user: any = await User.findOne({
+        $or: [
+          { email: identifier.toLowerCase() },
+          { username: identifier.toLowerCase() },
+        ],
+      })
+        .select("_id")
+        .lean();
+
+      if (user) {
+        const keys = await Passkey.find({ userId: String(user._id) })
+          .select("credentialId transports")
+          .lean();
+        if (keys.length) {
+          allowCredentials = keys.map((k: any) => ({
+            id: k.credentialId,
+            transports: k.transports,
+          }));
+        }
+      }
+    }
+
     const options = await generateAuthenticationOptions({
       rpID,
       userVerification: "preferred",
+      ...(allowCredentials ? { allowCredentials } : {}),
     });
+
     await saveChallenge(options.challenge);
-    return NextResponse.json({ success: true, options });
+    return NextResponse.json({
+      success: true,
+      options,
+      scoped: !!allowCredentials,
+    });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, message: error.message },

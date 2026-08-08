@@ -2,9 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown,
+  ChevronUp,
+  LogOut,
+  Globe,
+  Loader2,
   X,
   Menu,
   LayoutDashboard,
@@ -76,14 +81,47 @@ export default function Sidebar({
   isMobile: boolean;
 }) {
   const pathname = usePathname() || "";
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>(
     {},
   );
   const [sidebarLinks, setSidebarLinks] = useState<SidebarLink[]>([]);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const sidebarRef = useRef<HTMLElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
+
+  // Clicking anywhere else closes the account menu
+  useEffect(() => {
+    if (!accountOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!accountRef.current?.contains(e.target as Node)) setAccountOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAccountOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [accountOpen]);
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await logout?.();
+    } finally {
+      setAccountOpen(false);
+      setLoggingOut(false);
+      router.push("/login");
+      router.refresh();
+    }
+  };
 
   useEffect(() => {
     if (user?.role === "user") {
@@ -278,17 +316,76 @@ export default function Sidebar({
         </div>
 
         <div
-          className={`mt-auto transition-all duration-300 ${isOpen ? "p-4 border-t border-white/5 bg-card/50" : "p-2 py-6 border-t border-transparent relative"}`}
+          ref={accountRef}
+          className={`mt-auto relative transition-all duration-300 ${isOpen ? "p-4 border-t border-white/5 bg-card/50" : "p-2 py-6 border-t border-transparent"}`}
         >
-          <div
-            className={`transition-all duration-300 ${isOpen ? "p-4 rounded-xl bg-white/5 border border-white/10" : "flex justify-center"}`}
+          {/* Account menu — opens upward so it never falls off-screen */}
+          <AnimatePresence>
+            {accountOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                transition={{ duration: 0.16, ease: "easeOut" }}
+                className={`absolute bottom-full mb-2 z-50 rounded-2xl border border-white/10 bg-[#0d0d14]/97 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden ${
+                  isOpen ? "left-4 right-4" : "left-2 w-56"
+                }`}
+              >
+                <div className="px-4 py-3 border-b border-white/8">
+                  <p className="text-sm font-black text-white truncate">
+                    {user?.displayName || user?.username || "Account"}
+                  </p>
+                  <p className="text-[10px] text-gray-500 font-medium truncate">
+                    {user?.email}
+                  </p>
+                </div>
+
+                <Link
+                  href="/dashboard/setting"
+                  onClick={() => setAccountOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <Settings size={15} /> Settings
+                </Link>
+                <Link
+                  href="/"
+                  onClick={() => setAccountOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <Globe size={15} /> View website
+                </Link>
+
+                <button
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/8 cursor-pointer disabled:opacity-60"
+                >
+                  {loggingOut ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <LogOut size={15} />
+                  )}
+                  Sign out
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button
+            onClick={() => setAccountOpen((v) => !v)}
+            aria-expanded={accountOpen}
+            className={`w-full cursor-pointer transition-all duration-300 ${
+              isOpen
+                ? "p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20"
+                : "flex justify-center rounded-xl hover:bg-white/5 py-1"
+            } ${accountOpen ? "border-accent/40 bg-white/10" : ""}`}
           >
             <div className="flex items-center gap-3.5 w-full">
               <div className="size-10 rounded-xl bg-[#6366F1] flex items-center justify-center text-white text-xs uppercase font-bold shrink-0 shadow-lg">
                 {user?.username?.charAt(0) || "U"}
               </div>
               <div
-                className="flex-1 overflow-hidden transition-opacity"
+                className="flex-1 overflow-hidden transition-opacity text-left"
                 style={{ opacity: isOpen ? 1 : 0 }}
               >
                 <p className="text-sm font-bold text-white truncate tracking-tight">
@@ -298,8 +395,14 @@ export default function Sidebar({
                   {user?.role || "Operator"}
                 </p>
               </div>
+              {isOpen && (
+                <ChevronUp
+                  size={15}
+                  className={`shrink-0 text-gray-500 transition-transform ${accountOpen ? "" : "rotate-180"}`}
+                />
+              )}
             </div>
-          </div>
+          </button>
         </div>
       </aside>
     </>

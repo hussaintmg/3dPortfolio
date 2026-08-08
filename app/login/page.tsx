@@ -151,7 +151,9 @@ function LoginContent() {
           </form>
 
           <div className="mt-7">
-            <PasskeyButton />
+            {/* Passing the typed email lets us look up that account's
+                credentials when the device has no discoverable passkey. */}
+            <PasskeyButton identifier={formData.email} />
           </div>
 
           <p className="text-center mt-10 text-xs text-gray-500">

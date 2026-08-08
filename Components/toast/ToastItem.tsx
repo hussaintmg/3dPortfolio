@@ -83,7 +83,8 @@ export const ToastItem: React.FC<ToastConfig> = ({
       whileHover={{ scale: 1.02, filter: "blur(0px) brightness(1.1)" }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      className="group pointer-events-auto relative min-w-[280px] max-w-sm md:max-w-md overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/80 p-4 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors hover:bg-zinc-900/90"
+      onClick={() => removeNotification(id!)}
+      className="group pointer-events-auto relative min-w-[280px] max-w-sm md:max-w-md cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/80 p-4 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors hover:bg-zinc-900/90"
     >
       {/* Inner highlight */}
       <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/10 to-transparent" />
@@ -109,7 +110,7 @@ export const ToastItem: React.FC<ToastConfig> = ({
         {/* Close Button */}
         <button
           onClick={() => removeNotification(id!)}
-          className="shrink-0 -mr-1 rounded-lg p-1 text-white/20 transition-all hover:bg-white/5 hover:text-white active:scale-90"
+          className="shrink-0 -mr-1 cursor-pointer rounded-lg p-1 text-white/20 transition-all hover:bg-white/5 hover:text-white active:scale-90"
         >
           <X size={16} />
         </button>

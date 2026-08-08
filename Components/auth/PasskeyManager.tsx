@@ -34,6 +34,8 @@ export default function PasskeyManager() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [supported, setSupported] = useState(true);
+  const [platformAvailable, setPlatformAvailable] = useState<boolean | null>(null);
+  const [secure, setSecure] = useState(true);
   const [deleting, setDeleting] = useState<PasskeyRow | null>(null);
 
   const load = useCallback(async () => {
@@ -48,16 +50,43 @@ export default function PasskeyManager() {
   }, []);
 
   useEffect(() => {
-    setSupported(
-      typeof window !== "undefined" && !!window.PublicKeyCredential,
+    const has =
+      typeof window !== "undefined" && !!window.PublicKeyCredential;
+    setSupported(has);
+
+    // WebAuthn is blocked outside a secure context — a LAN IP won't work
+    setSecure(
+      typeof window === "undefined" ||
+        window.isSecureContext ||
+        location.hostname === "localhost" ||
+        location.hostname === "127.0.0.1",
     );
+
+    // Is there actually a fingerprint/face sensor set up on this machine?
+    if (has && window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(setPlatformAvailable)
+        .catch(() => setPlatformAvailable(false));
+    } else {
+      setPlatformAvailable(false);
+    }
+
     load();
   }, [load]);
 
-  const addDevice = async () => {
+  const addDevice = async (mode: "platform" | "cross" = "platform") => {
+    if (!secure) {
+      notify.error(
+        "Not available on this address",
+        "Passkeys need https or localhost. Open the site at localhost instead of the IP.",
+      );
+      return;
+    }
     try {
       setBusy(true);
-      const { data: opt } = await axios.get("/api/auth/passkey/register");
+      const { data: opt } = await axios.get(
+        `/api/auth/passkey/register${mode === "cross" ? "?type=cross" : ""}`,
+      );
       if (!opt.success) {
         notify.error("Could not start", opt.message);
         return;
@@ -65,9 +94,11 @@ export default function PasskeyManager() {
 
       const response = await startRegistration({ optionsJSON: opt.options });
       const guess =
-        /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)
-          ? "Phone"
-          : "This computer";
+        mode === "cross"
+          ? "Security key / phone"
+          : /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)
+            ? "Phone"
+            : "This computer";
 
       const { data } = await axios.post("/api/auth/passkey/register", {
         response,
@@ -81,9 +112,23 @@ export default function PasskeyManager() {
         notify.error("Registration failed", data.message);
       }
     } catch (err: any) {
-      if (err?.name === "NotAllowedError" || err?.name === "AbortError") return;
+      if (err?.name === "AbortError") return;
       if (err?.name === "InvalidStateError") {
         notify.info("Already registered", "This device is set up already");
+        return;
+      }
+      if (err?.name === "NotAllowedError") {
+        notify.warning(
+          "Cancelled or unavailable",
+          "The prompt was dismissed, or Windows Hello isn't set up. Add a PIN/fingerprint in Windows Settings → Accounts → Sign-in options, then try again.",
+        );
+        return;
+      }
+      if (err?.name === "NotSupportedError") {
+        notify.error(
+          "This device can't do it",
+          "No built-in fingerprint or face sensor was found. Try 'Use a phone or security key' instead.",
+        );
         return;
       }
       notify.error(
@@ -123,20 +168,62 @@ export default function PasskeyManager() {
             leave the device — only a public key is stored.
           </p>
         </div>
-        <button
-          onClick={addDevice}
-          disabled={busy || !supported}
-          className="shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl bg-accent hover:bg-accent-hover disabled:opacity-40 text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
-        >
-          {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-          Add this device
-        </button>
+        <div className="shrink-0 flex flex-col gap-2">
+          <button
+            onClick={() => addDevice("platform")}
+            disabled={busy || !supported}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-accent hover:bg-accent-hover disabled:opacity-40 text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer"
+          >
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+            Add this device
+          </button>
+          <button
+            onClick={() => addDevice("cross")}
+            disabled={busy || !supported}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-40 text-gray-300 text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
+          >
+            <Smartphone size={12} /> Use phone / key
+          </button>
+        </div>
       </div>
 
       {!supported && (
         <p className="text-xs font-bold text-amber-400">
           This browser doesn't support passkeys — try Chrome, Edge or Safari.
         </p>
+      )}
+
+      {supported && !secure && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <p className="text-xs font-black text-amber-400 uppercase tracking-widest">
+            Wrong address
+          </p>
+          <p className="text-[11px] text-gray-300 font-medium mt-1.5 leading-relaxed">
+            Passkeys only work on <span className="text-white">https</span> or{" "}
+            <span className="text-white">localhost</span>. You're on{" "}
+            <code className="text-amber-300">{typeof window !== "undefined" ? location.host : ""}</code>{" "}
+            — reopen the site at{" "}
+            <code className="text-white">localhost:3000</code> and try again.
+          </p>
+        </div>
+      )}
+
+      {supported && secure && platformAvailable === false && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <p className="text-xs font-black text-amber-400 uppercase tracking-widest">
+            Windows Hello isn't set up
+          </p>
+          <p className="text-[11px] text-gray-300 font-medium mt-1.5 leading-relaxed">
+            This computer has no fingerprint, face or PIN sign-in configured, so
+            the browser has nothing to unlock with. Open{" "}
+            <span className="text-white">
+              Windows Settings → Accounts → Sign-in options
+            </span>{" "}
+            and add a PIN or fingerprint — a PIN alone is enough. Then reload
+            this page. You can also use "Use phone / key" to scan a QR with your
+            phone instead.
+          </p>
+        </div>
       )}
 
       {loading ? (
