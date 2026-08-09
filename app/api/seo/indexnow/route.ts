@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import dbConnect from "@/lib/mongoose";
+import SiteSettings from "@/models/SiteSettings";
 import { verifyToken } from "@/lib/auth";
 import { SITE_URL } from "@/lib/seo";
 import sitemap from "@/app/sitemap";
@@ -31,30 +33,78 @@ const denied = () =>
     { status: 403 },
   );
 
-/** Reports whether the setup is actually working, rather than merely present. */
+/**
+ * Reports whether the setup is actually working, rather than merely present.
+ *
+ * Every check fetches the real URL a crawler would fetch. "The file exists in
+ * the repo" and "the file answers 200 on the live domain" are different
+ * claims, and only the second one gets a site verified.
+ */
 export async function GET() {
   if (!(await requireOwner())) return denied();
 
-  // Fetching our own key file is the same check IndexNow performs, so a pass
-  // here means a submission will not come back 403.
-  let keyFileOk = false;
-  let keyFileError = "";
+  let settings: any = null;
   try {
-    const res = await fetch(INDEXNOW_KEY_LOCATION, { cache: "no-store" });
-    keyFileOk = res.ok;
-    if (!res.ok) keyFileError = `Key file returned ${res.status}`;
-  } catch (e: any) {
-    keyFileError = e?.message || "Key file unreachable";
+    await dbConnect();
+    settings = await SiteSettings.findOne({ key: "global" })
+      .select("googleVerification googleVerificationFile bingVerification description")
+      .lean();
+  } catch {
+    // Reported as "not configured" rather than failing the whole check
+  }
+
+  const google =
+    settings?.googleVerification?.trim() ||
+    process.env.GOOGLE_SITE_VERIFICATION?.trim() ||
+    "";
+  const bing =
+    settings?.bingVerification?.trim() ||
+    process.env.BING_SITE_VERIFICATION?.trim() ||
+    "";
+  const googleFile =
+    settings?.googleVerificationFile?.trim() ||
+    process.env.GOOGLE_VERIFICATION_FILE?.trim() ||
+    "";
+
+  const probe = async (path: string) => {
+    try {
+      const res = await fetch(new URL(path, SITE_URL).toString(), {
+        cache: "no-store",
+      });
+      return { path, status: res.status, ok: res.ok };
+    } catch (e: any) {
+      return { path, status: 0, ok: false, error: e?.message || "unreachable" };
+    }
+  };
+
+  const [keyFile, robots, sitemapFile, llms, googleFileCheck] = await Promise.all([
+    probe(new URL(INDEXNOW_KEY_LOCATION).pathname),
+    probe("/robots.txt"),
+    probe("/sitemap.xml"),
+    probe("/llms.txt"),
+    googleFile ? probe(`/${googleFile}`) : Promise.resolve(null),
+  ]);
+
+  let urlCount = 0;
+  try {
+    urlCount = (await sitemap()).length;
+  } catch {
+    // A sitemap failure already shows up as a non-200 above
   }
 
   return NextResponse.json({
     success: true,
     siteUrl: SITE_URL,
     keyLocation: INDEXNOW_KEY_LOCATION,
-    keyFileOk,
-    keyFileError,
-    bingVerificationConfigured: !!process.env.BING_SITE_VERIFICATION?.trim(),
-    googleVerificationConfigured: !!process.env.GOOGLE_SITE_VERIFICATION?.trim(),
+    keyFileOk: keyFile.ok,
+    keyFileError: keyFile.ok ? "" : `Key file returned ${keyFile.status}`,
+    checks: { robots, sitemap: sitemapFile, llms, keyFile, googleFile: googleFileCheck },
+    urlCount,
+    googleVerificationConfigured: !!google,
+    bingVerificationConfigured: !!bing,
+    googleVerificationFile: googleFile,
+    /** Below ~90 characters Google writes its own snippet instead. */
+    descriptionLength: (settings?.description || "").trim().length,
   });
 }
 

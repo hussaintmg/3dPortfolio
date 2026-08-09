@@ -168,7 +168,7 @@ export async function generateMetadata(): Promise<Metadata> {
      * Bing carries extra weight here: ChatGPT's search reads Bing's index, so
      * being absent from it means being unquotable there.
      */
-    ...buildVerification(),
+    ...buildVerification(s),
   };
 }
 
@@ -195,9 +195,19 @@ function buildIcons(s: any): Pick<Metadata, "icons">["icons"] {
   };
 }
 
-function buildVerification(): Pick<Metadata, "verification"> {
-  const google = process.env.GOOGLE_SITE_VERIFICATION?.trim();
-  const bing = process.env.BING_SITE_VERIFICATION?.trim();
+/**
+ * Ownership proofs for Google and Bing.
+ *
+ * The saved settings win over the environment: Search Console expects to find
+ * its code within minutes of issuing it, and requiring a redeploy to publish
+ * one turns a two-minute job into a blocked one. The env vars stay as a
+ * fallback so existing deployments keep verifying.
+ */
+function buildVerification(s: any): Pick<Metadata, "verification"> {
+  const google =
+    s?.googleVerification?.trim() || process.env.GOOGLE_SITE_VERIFICATION?.trim();
+  const bing =
+    s?.bingVerification?.trim() || process.env.BING_SITE_VERIFICATION?.trim();
 
   if (!google && !bing) return {};
 

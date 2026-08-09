@@ -509,7 +509,9 @@ export default function DashboardPackages() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-white/60 backdrop-blur-xl"
+              /* The rest of the dashboard is dark; a white scrim here washed
+                 the whole screen out when the modal opened. */
+              className="absolute inset-0 bg-background/85 backdrop-blur-xl"
               onClick={() => setIsModalOpen(false)}
             />
             <motion.div

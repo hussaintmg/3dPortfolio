@@ -18,6 +18,30 @@ export async function GET() {
   }
 }
 
+/**
+ * Search consoles show you a whole `<meta …>` tag and people paste the whole
+ * thing. Only the `content` value belongs in the field, so pull it out rather
+ * than storing a tag inside a tag and failing verification for no good reason.
+ */
+function normaliseVerification(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const fromTag = raw.match(/content\s*=\s*["']([^"']+)["']/i);
+  if (fromTag) return fromTag[1].trim();
+  // "google-site-verification: googleXXXX.html" is the file-method contents
+  const prefixed = raw.match(/^google-site-verification:\s*(\S+)$/i);
+  if (prefixed) return prefixed[1].trim();
+  return raw.replace(/^["']|["']$/g, "");
+}
+
+/** The file method wants a bare `googleXXXX.html`, however it was pasted. */
+function normaliseVerificationFile(value: unknown): string {
+  const raw = normaliseVerification(value);
+  if (!raw) return "";
+  const name = raw.split("/").pop() || "";
+  return /^google[A-Za-z0-9_-]+\.html$/.test(name) ? name : "";
+}
+
 export async function PUT(req: Request) {
   try {
     await dbConnect();
@@ -52,6 +76,9 @@ export async function PUT(req: Request) {
       footerLinks,
       maintenanceMode,
       maintenanceMessage,
+      googleVerification,
+      googleVerificationFile,
+      bingVerification,
     } = body;
 
     // Clean up the previous favicon file when it is being replaced
@@ -93,6 +120,15 @@ export async function PUT(req: Request) {
             maintenanceMode: !!maintenanceMode,
           }),
           ...(maintenanceMessage !== undefined && { maintenanceMessage }),
+          ...(googleVerification !== undefined && {
+            googleVerification: normaliseVerification(googleVerification),
+          }),
+          ...(googleVerificationFile !== undefined && {
+            googleVerificationFile: normaliseVerificationFile(googleVerificationFile),
+          }),
+          ...(bingVerification !== undefined && {
+            bingVerification: normaliseVerification(bingVerification),
+          }),
         },
       },
       { new: true, upsert: true },

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { DesignElement, ShapeKind } from "@/lib/pdfDesigner";
 import { notify } from "@/lib/notify";
+import { uploadFile } from "@/lib/uploadClient";
 import { cn } from "@/lib/cn";
 
 const SHAPES: { id: ShapeKind; label: string }[] = [
@@ -84,12 +85,7 @@ export default function ElementInspector({
   const uploadImage = async (file: File) => {
     try {
       setUploading(true);
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("folder", "templates");
-      const res = await fetch("/api/upload", { method: "POST", body: fd }).then(
-        (r) => r.json(),
-      );
+      const res = await uploadFile(file, { folder: "templates" });
       if (res.success) return res.publicUrl as string;
       notify.error("Upload failed", res.error);
       return null;

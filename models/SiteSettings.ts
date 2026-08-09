@@ -41,6 +41,23 @@ const SiteSettingsSchema = new mongoose.Schema(
         icon: { type: String },
       },
     ],
+    /**
+     * Search-console ownership proofs.
+     *
+     * These deliberately live in the database rather than only in environment
+     * variables. Google hands you a code and expects to find it within
+     * minutes; if the only way to publish it is a Vercel env var plus a
+     * redeploy, verification stalls on a deploy the owner may not be able to
+     * run. Saved here they are live on the next page render.
+     *
+     * `googleVerification`  — the `content="…"` value from the HTML-tag method
+     * `googleVerificationFile` — the `googleXXXX.html` filename, if the
+     *                            file method was chosen instead
+     * `bingVerification`    — Bing's `msvalidate.01` value
+     */
+    googleVerification: { type: String, default: "" },
+    googleVerificationFile: { type: String, default: "" },
+    bingVerification: { type: String, default: "" },
     /** Footer "Navigation" column links, managed from /dashboard/cms. */
     footerLinks: [
       {

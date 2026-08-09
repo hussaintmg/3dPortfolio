@@ -22,6 +22,7 @@ import {
   Languages,
   Sparkles,
   Bot,
+  X,
 } from "lucide-react";
 import axios from "axios";
 import { notify } from "@/lib/notify";
@@ -31,6 +32,8 @@ import { Skeleton } from "@/Components/ui/Skeleton";
 import ConfirmationModal from "@/Components/dashboard/ConfirmationModal";
 import MediaViewer, { type MediaItem } from "@/Components/chat/MediaViewer";
 import MessageTicks, { tickState } from "@/Components/chat/MessageTicks";
+import { uploadFile } from "@/lib/uploadClient";
+import { uploadSizeError, kindFromMime, SIZE_LIMITS, formatBytes } from "@/lib/uploadLimits";
 
 /** PDFs get the built-in reader; everything else stays a download. */
 const isPdf = (a?: { name?: string; mime?: string; url?: string }) =>
@@ -77,6 +80,70 @@ const fmtTime = (iso: string) =>
 const fmtSize = (b?: number) =>
   !b ? "" : b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.ceil(b / 1024) + " KB";
 
+/**
+ * A video bubble that admits when it cannot render.
+ *
+ * A `<video>` whose source the browser refuses (an unsupported codec, or a
+ * file stored under the wrong content type) collapses to an empty rectangle
+ * with a play button on it — which is exactly what "the video went but does
+ * not work" looked like. Now the failure says so and still offers the file.
+ */
+function VideoThumb({
+  attachment,
+  onOpen,
+}: {
+  attachment: NonNullable<ChatMsg["attachment"]>;
+  onOpen: () => void;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
+      >
+        <div className="size-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0">
+          <Play size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-white truncate">
+            {attachment.name || "Video"}
+          </p>
+          <p className="text-[10px] text-gray-500 font-medium">
+            This browser can&apos;t play it · {fmtSize(attachment.size)} · open or download
+          </p>
+        </div>
+        <Download size={15} className="shrink-0 opacity-60" />
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="relative block w-full cursor-pointer group/vid"
+    >
+      <video
+        src={attachment.url}
+        className="max-h-72 w-full pointer-events-none"
+        preload="metadata"
+        playsInline
+        muted
+        onError={() => setFailed(true)}
+      />
+      <span className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover/vid:bg-black/40 transition-colors">
+        <span className="size-12 rounded-full bg-black/70 border border-white/20 flex items-center justify-center text-white group-hover/vid:scale-110 transition-transform">
+          <Play size={20} className="ml-0.5" />
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export default function ChatThread({ conversationId, className }: ChatThreadProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -84,6 +151,10 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  /** 0–100 while an attachment is on its way to storage. */
+  const [uploadPct, setUploadPct] = useState(0);
+  const [uploadName, setUploadName] = useState("");
+  const uploadAbort = useRef<AbortController | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -331,22 +402,35 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
     }
   };
 
+  const cancelUpload = () => uploadAbort.current?.abort();
+
   const sendAttachment = async (file: File) => {
     if (uploading) return;
     const mime = file.type || "application/octet-stream";
-    const type: ChatMsg["type"] = mime.startsWith("image/")
-      ? "image"
-      : mime.startsWith("video/")
-        ? "video"
-        : mime.startsWith("audio/")
-          ? "audio"
-          : "file";
+    const type: ChatMsg["type"] = kindFromMime(mime);
+
+    // Refuse locally rather than after a long upload — a person watching a
+    // 40MB video crawl to 100% only to be told "too large" has wasted minutes
+    // and their mobile data.
+    const tooBig = uploadSizeError(file.size, mime);
+    if (tooBig) {
+      notify.error("Can't send this file", tooBig);
+      return;
+    }
+
+    const controller = new AbortController();
+    uploadAbort.current = controller;
+
     try {
       setUploading(true);
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("folder", "chat");
-      const up = await fetch("/api/upload", { method: "POST", body: fd }).then((r) => r.json());
+      setUploadPct(0);
+      setUploadName(file.name);
+
+      const up = await uploadFile(file, {
+        folder: "chat",
+        signal: controller.signal,
+        onProgress: setUploadPct,
+      });
       if (!up.success) throw new Error(up.error || "Upload failed");
 
       const res = await axios.post("/api/chat", {
@@ -356,16 +440,23 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
           url: up.publicUrl,
           name: file.name,
           size: file.size,
-          mime,
+          // Store what actually landed in storage, not what the OS guessed —
+          // the player reads this to decide whether it can play the file.
+          mime: up.contentType || mime,
           storageKey: up.filePath,
         },
       });
       if (res.data.success) pushMessage(res.data.message);
       else notify.error("Send failed", res.data.message);
     } catch (err: any) {
-      notify.error("Attachment failed", err.message);
+      if (!controller.signal.aborted) {
+        notify.error("Attachment failed", err.message);
+      }
     } finally {
+      uploadAbort.current = null;
       setUploading(false);
+      setUploadPct(0);
+      setUploadName("");
     }
   };
 
@@ -532,23 +623,10 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                       </button>
                     )}
                     {m.type === "video" && m.attachment?.url && (
-                      <button
-                        type="button"
-                        onClick={() => openMedia(m, "video")}
-                        className="relative block w-full cursor-pointer group/vid"
-                      >
-                        <video
-                          src={m.attachment.url}
-                          className="max-h-72 w-full pointer-events-none"
-                          preload="metadata"
-                          muted
-                        />
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover/vid:bg-black/40 transition-colors">
-                          <span className="size-12 rounded-full bg-black/70 border border-white/20 flex items-center justify-center text-white group-hover/vid:scale-110 transition-transform">
-                            <Play size={20} className="ml-0.5" />
-                          </span>
-                        </span>
-                      </button>
+                      <VideoThumb
+                        attachment={m.attachment}
+                        onOpen={() => openMedia(m, "video")}
+                      />
                     )}
                     {m.type === "audio" && m.attachment?.url && (
                       <div className="px-3 py-2.5 min-w-[240px]">
@@ -728,6 +806,35 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
 
       {/* Composer */}
       <div className="border-t border-white/8 bg-white/2 backdrop-blur-xl p-3 sm:p-4">
+        {/* A big video takes real time to leave the device. Without this the
+            UI looked frozen and people assumed it had failed. */}
+        {uploading && (
+          <div className="mb-3 rounded-2xl border border-accent/25 bg-accent/8 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Loader2 size={14} className="animate-spin text-accent shrink-0" />
+              <span className="text-xs font-bold text-white truncate flex-1 min-w-0">
+                {uploadName || "Uploading…"}
+              </span>
+              <span className="text-xs font-black text-accent tabular-nums shrink-0">
+                {uploadPct}%
+              </span>
+              <button
+                type="button"
+                onClick={cancelUpload}
+                title="Cancel upload"
+                className="size-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-red-400 hover:border-red-400/40 transition-all shrink-0 cursor-pointer"
+              >
+                <X size={12} />
+              </button>
+            </div>
+            <div className="mt-2 h-1 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent transition-[width] duration-200"
+                style={{ width: `${uploadPct}%` }}
+              />
+            </div>
+          </div>
+        )}
         {recording ? (
           <div className="flex items-center gap-4 px-2">
             <div className="flex items-center gap-3 flex-1">
@@ -747,7 +854,10 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
         ) : (
           <form onSubmit={sendText} className="flex items-end gap-2">
             {/* Attach any file */}
-            <label className="size-11 shrink-0 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-accent hover:border-accent/40 transition-all cursor-pointer active:scale-95">
+            <label
+              title={`Attach a file — video up to ${formatBytes(SIZE_LIMITS.video)}`}
+              className="size-11 shrink-0 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-accent hover:border-accent/40 transition-all cursor-pointer active:scale-95"
+            >
               {uploading ? <Loader2 size={17} className="animate-spin" /> : <Paperclip size={17} />}
               <input
                 type="file"

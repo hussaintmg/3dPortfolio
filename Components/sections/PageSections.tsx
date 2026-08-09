@@ -18,6 +18,7 @@ import {
 import axios from "axios";
 import { useSite } from "@/context/SiteContext";
 import { notify } from "@/lib/notify";
+import { uploadFile } from "@/lib/uploadClient";
 import { SECTION_TEMPLATES, getTemplate } from "@/lib/sectionTemplates";
 import SectionRenderer, { SectionData } from "./SectionRenderer";
 import ConfirmationModal from "@/Components/dashboard/ConfirmationModal";
@@ -410,12 +411,7 @@ function SectionSettings({
   if (!mounted || !section) return null;
 
   const upload = async (file: File): Promise<string | null> => {
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("folder", "sections");
-    const res = await fetch("/api/upload", { method: "POST", body: fd }).then(
-      (r) => r.json(),
-    );
+    const res = await uploadFile(file, { folder: "sections" });
     if (!res.success) {
       notify.error("Upload failed", res.error);
       return null;

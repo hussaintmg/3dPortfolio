@@ -22,6 +22,7 @@ import {
 import ImageCropUpload from "@/Components/ui/ImageCropUpload";
 import axios from "axios";
 import { notify } from "@/lib/notify";
+import { uploadFile } from "@/lib/uploadClient";
 import FloatingInput from "@/Components/ui/FloatingInput";
 import FloatingTextarea from "@/Components/ui/FloatingTextarea";
 import { Skeleton } from "@/Components/ui/Skeleton";
@@ -29,6 +30,7 @@ import Toggle from "@/Components/ui/Toggle";
 import PasskeyManager from "@/Components/auth/PasskeyManager";
 import FaceUnlockManager from "@/Components/auth/FaceUnlockManager";
 import NotificationSettings from "@/Components/notifications/NotificationSettings";
+import SeoPanel from "@/Components/dashboard/SeoPanel";
 import { useSite } from "@/context/SiteContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -55,6 +57,9 @@ interface SettingsForm {
   footerLinks: { name: string; url: string }[];
   maintenanceMode: boolean;
   maintenanceMessage: string;
+  googleVerification: string;
+  googleVerificationFile: string;
+  bingVerification: string;
 }
 
 const emptyForm: SettingsForm = {
@@ -74,6 +79,9 @@ const emptyForm: SettingsForm = {
   footerLinks: [],
   maintenanceMode: false,
   maintenanceMessage: "",
+  googleVerification: "",
+  googleVerificationFile: "",
+  bingVerification: "",
 };
 
 const SOCIAL_ICONS = ["Github", "Twitter", "Instagram", "Facebook", "Linkedin", "Youtube"];
@@ -111,6 +119,9 @@ export default function SiteSettingPage() {
             footerLinks: s.footerLinks || [],
             maintenanceMode: !!s.maintenanceMode,
             maintenanceMessage: s.maintenanceMessage || "",
+            googleVerification: s.googleVerification || "",
+            googleVerificationFile: s.googleVerificationFile || "",
+            bingVerification: s.bingVerification || "",
           });
           setFaviconPreview(s.faviconUrl || "");
         }
@@ -138,23 +149,17 @@ export default function SiteSettingPage() {
       let faviconUrl = form.faviconUrl;
       let faviconStorageKey = form.faviconStorageKey;
 
-      // Upload new favicon first (through the authenticated server proxy)
+      // Upload new favicon first (browser → storage, see lib/uploadClient)
       if (faviconFile) {
         setUploadingFavicon(true);
-        const fd = new FormData();
-        fd.append("file", faviconFile);
-        fd.append("folder", "site");
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: fd,
-        }).then((r) => r.json());
+        const uploadRes = await uploadFile(faviconFile, { folder: "site" });
         setUploadingFavicon(false);
 
         if (!uploadRes.success) {
           throw new Error(uploadRes.error || "Favicon upload failed");
         }
-        faviconUrl = uploadRes.publicUrl;
-        faviconStorageKey = uploadRes.filePath;
+        faviconUrl = uploadRes.publicUrl || "";
+        faviconStorageKey = uploadRes.filePath || "";
       }
 
       const res = await axios.put("/api/site-settings", {
@@ -308,13 +313,36 @@ export default function SiteSettingPage() {
                   onChange={(e) => set({ title: e.target.value })}
                 />
               </div>
-              <FloatingTextarea
-                label="Meta Description (SEO)"
-                rows={3}
-                value={form.description}
-                onChange={(e) => set({ description: e.target.value })}
-              />
+              <div>
+                <FloatingTextarea
+                  label="Meta Description (SEO)"
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) => set({ description: e.target.value })}
+                />
+                {/* Under ~90 characters Google ignores it and writes its own
+                    snippet, so the count is worth showing rather than hiding. */}
+                <p
+                  className={`mt-2 text-[10px] font-bold ${
+                    form.description.trim().length >= 90
+                      ? "text-gray-500"
+                      : "text-amber-400"
+                  }`}
+                >
+                  {form.description.trim().length} characters
+                  {form.description.trim().length < 90 &&
+                    " — write at least 90 or search engines will use the built-in default"}
+                </p>
+              </div>
             </section>
+
+            {/* Search Console / Bing ownership + live SEO checks */}
+            <SeoPanel
+              googleVerification={form.googleVerification}
+              googleVerificationFile={form.googleVerificationFile}
+              bingVerification={form.bingVerification}
+              onChange={set}
+            />
 
             {/* Favicon */}
             <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">

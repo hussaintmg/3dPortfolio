@@ -168,6 +168,12 @@ function VideoStage({ item }: { item: MediaItem }) {
   const [speed, setSpeed] = useState(1);
   const [buffered, setBuffered] = useState(0);
   const [waiting, setWaiting] = useState(true);
+  /**
+   * Without this a video the browser cannot decode leaves `waiting` true and
+   * the spinner turns forever, which reads as "still loading" rather than
+   * "this will never play".
+   */
+  const [failed, setFailed] = useState(false);
 
   const toggle = useCallback(() => {
     const v = ref.current;
@@ -226,6 +232,10 @@ function VideoStage({ item }: { item: MediaItem }) {
           onWaiting={() => setWaiting(true)}
           onPlaying={() => setWaiting(false)}
           onCanPlay={() => setWaiting(false)}
+          onError={() => {
+            setWaiting(false);
+            setFailed(true);
+          }}
           onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
           onTimeUpdate={(e) => {
             const v = e.currentTarget;
@@ -236,13 +246,33 @@ function VideoStage({ item }: { item: MediaItem }) {
           }}
           className="max-w-full max-h-full cursor-pointer"
         />
-        {waiting && (
+        {waiting && !failed && (
           <Loader2
             size={30}
             className="animate-spin text-white/80 absolute pointer-events-none"
           />
         )}
-        {!playing && !waiting && (
+        {failed && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-sm font-bold text-white">
+              This video can&apos;t be played here
+            </p>
+            <p className="text-xs text-white/60 max-w-sm">
+              The browser doesn&apos;t support its format. Downloading it opens
+              in any media player.
+            </p>
+            <a
+              href={item.url}
+              download={item.name || true}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-xs font-black uppercase tracking-widest text-white hover:bg-white/20 transition-all"
+            >
+              <Download size={14} /> Download
+            </a>
+          </div>
+        )}
+        {!playing && !waiting && !failed && (
           <button
             onClick={toggle}
             className="absolute inset-0 flex items-center justify-center group cursor-pointer"

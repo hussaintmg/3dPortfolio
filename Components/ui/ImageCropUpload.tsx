@@ -16,6 +16,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { uploadFile } from "@/lib/uploadClient";
 
 /**
  * Zoom is expressed as a multiple of "the whole picture fits in the frame",
@@ -198,15 +199,13 @@ export default function ImageCropUpload({
       const blob = await render();
       if (!blob) throw new Error("Could not render the crop");
 
-      const fd = new FormData();
-      fd.append("file", new File([blob], `icon-${outputSize}.png`, { type: "image/png" }));
-
-      const res = await fetch("/api/upload", { method: "POST", body: fd }).then((r) =>
-        r.json(),
+      const res = await uploadFile(
+        new File([blob], `icon-${outputSize}.png`, { type: "image/png" }),
+        { folder: "uploads" },
       );
       if (!res.success) throw new Error(res.error || "Upload failed");
 
-      onChange(res.publicUrl, res.filePath);
+      onChange(res.publicUrl || "", res.filePath || "");
       notify.success("Image updated");
       setSrc(null);
     } catch (err: any) {

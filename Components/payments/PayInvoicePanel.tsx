@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { notify } from "@/lib/notify";
+import { uploadFile } from "@/lib/uploadClient";
 import FloatingInput from "@/Components/ui/FloatingInput";
 import FloatingTextarea from "@/Components/ui/FloatingTextarea";
 import { Skeleton } from "@/Components/ui/Skeleton";
@@ -121,15 +122,12 @@ export default function PayInvoicePanel({
   const uploadProof = async (file: File) => {
     try {
       setUploading(true);
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("folder", "payment-proofs");
-      const res = await fetch("/api/upload", { method: "POST", body: fd }).then(
-        (r) => r.json(),
-      );
+      // Direct to storage: a payment screenshot straight off a phone is
+      // routinely 5–8MB, which a serverless request body will not carry.
+      const res = await uploadFile(file, { folder: "payment-proofs" });
       if (res.success) {
-        setProofUrl(res.publicUrl);
-        setProofKey(res.filePath);
+        setProofUrl(res.publicUrl || "");
+        setProofKey(res.filePath || "");
         notify.success("Screenshot attached");
       } else {
         notify.error("Upload failed", res.error);

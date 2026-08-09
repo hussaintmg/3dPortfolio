@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, Upload, Loader2, Sparkles, Code2, Tag } from "lucide-react";
 import ColorPicker from "@/Components/dashboard/ColorPicker";
 import { notify } from "@/lib/notify";
+import { uploadFile } from "@/lib/uploadClient";
 import FloatingInput from "@/Components/ui/FloatingInput";
 
 interface SolutionFormProps {
@@ -71,23 +72,16 @@ export default function SolutionForm({ initialData, onSubmit, onClose, isLoading
         if (image.size > 1024 * 1024 * maxSizeMB) {
           throw new Error(`Image size must be less than ${maxSizeMB}MB`);
         }
-        // Upload to Supabase via server API proxy
-        const formDataUpload = new FormData();
-        formDataUpload.append("file", image);
-        formDataUpload.append("folder", "readymade-solutions");
-
-        const uploadResResponse = await fetch("/api/upload", {
-          method: "POST",
-          body: formDataUpload,
+        const uploadRes = await uploadFile(image, {
+          folder: "readymade-solutions",
         });
-        const uploadRes = await uploadResResponse.json();
 
         if (uploadRes.success) {
           mediaData = {
             url: uploadRes.publicUrl || "",
             name: image.name,
             size: image.size,
-            type: uploadRes.fileType || "",
+            type: uploadRes.contentType || "",
             storageKey: uploadRes.filePath || ""
           };
         } else {

@@ -3,9 +3,41 @@ import type { NextRequest } from "next/server";
 
 const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
+/** Google's HTML-file ownership proof, e.g. /googleab12cd34ef56.html */
+const GOOGLE_VERIFY_FILE = /^\/(google[A-Za-z0-9_-]+\.html)$/;
+
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get("auth_token")?.value;
   const { pathname } = request.nextUrl;
+
+  /*
+   * Search Console picks a different filename for every property, so it can
+   * never be a static route. The handler that knows which name the owner
+   * saved answers it, and this runs before anything else, because
+   * maintenance mode redirecting the proof to /login is exactly how
+   * verification fails.
+   *
+   * Fetched and returned rather than rewritten: a rewrite from a path that
+   * ends in `.html` resolves to the 404 page instead of the route handler,
+   * even though the handler itself answers 200 when called directly.
+   */
+  const googleFile = pathname.match(GOOGLE_VERIFY_FILE);
+  if (googleFile) {
+    const url = new URL("/api/seo/google-verify", request.url);
+    url.searchParams.set("file", googleFile[1]);
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      return new NextResponse(await res.text(), {
+        status: res.status,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=300",
+        },
+      });
+    } catch {
+      return new NextResponse("Not found", { status: 404 });
+    }
+  }
 
   let user = { success: false, user: null as any };
 

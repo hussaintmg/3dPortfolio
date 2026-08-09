@@ -97,6 +97,61 @@ export function getDownloadUrl(filePath: string) {
   return data.publicUrl;
 }
 
+/**
+ * Mints a one-shot upload URL the browser can PUT straight to.
+ *
+ * Posting a file to our own `/api/upload` means the bytes travel through a
+ * serverless function, and Vercel caps that request body at about 4.5MB — so
+ * any real video died before a single line of our code ran. A signed upload
+ * URL takes the function out of the path entirely: the server only authorises
+ * the write, the bytes go browser → Supabase. Storage still enforces the
+ * bucket's own 50MB ceiling, which is what we want it to enforce.
+ *
+ * The URL is valid for two hours and for that one object path only.
+ */
+export async function createSignedUpload(folderPath: string, fileName: string) {
+  const filePath = `${folderPath}/${fileName}`;
+
+  const { data, error } = await supabaseStorage
+    .from("SavedFiles")
+    .createSignedUploadUrl(filePath);
+
+  if (error || !data) {
+    return {
+      success: false as const,
+      error: error?.message || "Could not prepare the upload",
+    };
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from("SavedFiles")
+    .getPublicUrl(filePath);
+
+  return {
+    success: true as const,
+    filePath,
+    fileName,
+    signedUrl: data.signedUrl,
+    token: data.token,
+    publicUrl: publicUrlData.publicUrl,
+  };
+}
+
+/**
+ * The MIME type to store a file under.
+ *
+ * Exported because the signed-upload path has no `File` object on the server —
+ * only the name and the type the browser reported — and storing the wrong one
+ * is precisely what left every earlier voice note as `application/octet-stream`
+ * and therefore unplayable.
+ */
+export function resolveContentType(fileName: string, declaredType?: string) {
+  const declared = (declaredType || "").split(";")[0].trim();
+  return declared && declared !== "application/octet-stream"
+    ? declared
+    : getContentType(fileName);
+}
+
 export function getSignedUrl(filePath: string, expiresIn: number = 3600) {
   return supabaseStorage.from("SavedFiles").createSignedUrl(filePath, expiresIn);
 }

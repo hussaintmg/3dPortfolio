@@ -45,7 +45,7 @@ const FALLBACK: SeoProfile = {
   personName: "Hussain",
   title: `${webData.websiteName} — AI Engineer & Full-Stack Web Developer`,
   description:
-    "Hussain is an AI engineer and full-stack web developer building fast, scalable web applications with Next.js, React, Node.js and LLM-powered systems. Available for freelance and contract work worldwide.",
+    `Hussain is an AI engineer and full-stack web developer working as ${webData.websiteName} — fast, scalable web applications built with Next.js, React, Node.js and LLM-powered systems. Available for freelance and contract work worldwide.`,
   email: webData.email,
   phone: webData.phone,
   address: webData.address,
@@ -63,10 +63,13 @@ const MIN_USEFUL_DESCRIPTION = 90;
 /**
  * Guarantees the person's name is in the title tag.
  *
- * The owner's own title was "Cybogen | AI Engineer & Full-Stack Developer" —
- * a brand that collides with an established UK company and a job title
- * millions of people share, with the one genuinely distinctive term, the
- * name, left out. A title tag that omits it cannot win a search for it.
+ * The saved title is a brand plus a job title millions of people share, with
+ * the one genuinely distinctive term — the person's name — left out. A title
+ * tag that omits it cannot win a search for it, so it is put back.
+ *
+ * (The brand itself, Vectogen, is a good one to chase: the only prior holders
+ * are a deregistered Australian biotech and an unrelated South African
+ * registration, so nothing active competes for it in software.)
  */
 function withPersonName(title: string, person: string) {
   if (!person) return title;
@@ -117,6 +120,35 @@ export async function getSeoProfile(): Promise<SeoProfile> {
  */
 export function buildJsonLd(p: SeoProfile) {
   const personId = `${SITE_URL}/#person`;
+  const orgId = `${SITE_URL}/#organization`;
+
+  /**
+   * The brand as its own entity.
+   *
+   * Without this the brand name is only ever an attribute of a person, and an
+   * assistant asked "what is Vectogen" has nothing to answer with. Declaring
+   * it as an Organization founded by the Person is what lets the two be
+   * connected — and a branded search is the one search a new site can
+   * realistically win, so it is worth stating plainly.
+   */
+  const organization = {
+    "@type": "Organization",
+    "@id": orgId,
+    name: p.siteName,
+    legalName: p.siteName,
+    url: SITE_URL,
+    logo: p.imageUrl,
+    image: p.imageUrl,
+    description: `${p.siteName} is the studio name ${p.personName} works under, building AI-powered and full-stack web applications for clients worldwide.`,
+    founder: { "@id": personId },
+    email: p.email ? `mailto:${p.email}` : undefined,
+    telephone: p.phone || undefined,
+    address: p.address
+      ? { "@type": "PostalAddress", addressCountry: p.address }
+      : undefined,
+    sameAs: p.socials.map((s) => s.url),
+    knowsLanguage: ["en", "ur"],
+  };
 
   const person = {
     "@type": "Person",
@@ -147,11 +179,8 @@ export function buildJsonLd(p: SeoProfile) {
       "Progressive Web Apps",
       "REST and realtime APIs",
     ],
-    worksFor: {
-      "@type": "Organization",
-      name: p.siteName,
-      url: SITE_URL,
-    },
+    worksFor: { "@id": orgId },
+    founderOf: { "@id": orgId },
   };
 
   const website = {
@@ -159,9 +188,10 @@ export function buildJsonLd(p: SeoProfile) {
     "@id": `${SITE_URL}/#website`,
     url: SITE_URL,
     name: p.siteName,
+    alternateName: `${p.siteName} — ${p.personName}`,
     description: p.description,
     inLanguage: "en",
-    publisher: { "@id": personId },
+    publisher: { "@id": orgId },
     potentialAction: {
       "@type": "SearchAction",
       target: `${SITE_URL}/projects?q={search_term_string}`,
@@ -186,7 +216,9 @@ export function buildJsonLd(p: SeoProfile) {
     image: p.imageUrl,
     description:
       "Freelance AI engineering and full-stack web development: custom web applications, AI assistants and automation, and performance work on existing sites.",
-    provider: { "@id": personId },
+    provider: { "@id": orgId },
+    brand: { "@id": orgId },
+    founder: { "@id": personId },
     areaServed: "Worldwide",
     email: p.email || undefined,
     telephone: p.phone || undefined,
@@ -197,7 +229,7 @@ export function buildJsonLd(p: SeoProfile) {
 
   return {
     "@context": "https://schema.org",
-    "@graph": [person, website, profilePage, service],
+    "@graph": [organization, person, website, profilePage, service],
   };
 }
 

@@ -21,6 +21,7 @@ import {
 import { gsap } from "gsap";
 import axios from "axios";
 import { notify } from "@/lib/notify";
+import { uploadFile } from "@/lib/uploadClient";
 import { Skeleton, SkeletonRow, SkeletonCard } from "@/Components/ui/Skeleton";
 import FloatingInput from "@/Components/ui/FloatingInput";
 import FloatingTextarea from "@/Components/ui/FloatingTextarea";
@@ -133,23 +134,16 @@ export default function DashboardProjects() {
         if (imageFile.size > 1024 * 1024 * maxSizeMB) {
           throw new Error(`Image size must be less than ${maxSizeMB}MB`);
         }
-        // Upload to Supabase via server API proxy
-        const formDataUpload = new FormData();
-        formDataUpload.append("file", imageFile);
-        formDataUpload.append("folder", "projects");
-
-        const uploadResResponse = await fetch("/api/upload", {
-          method: "POST",
-          body: formDataUpload,
-        });
-        const uploadRes = await uploadResResponse.json();
+        // Straight to storage — project showreels are videos, and a video
+        // does not fit inside a serverless request body.
+        const uploadRes = await uploadFile(imageFile, { folder: "projects" });
 
         if (uploadRes.success) {
           mediaData = {
             url: uploadRes.publicUrl || "",
             name: imageFile.name,
             size: imageFile.size,
-            type: (uploadRes.fileType || "").startsWith("video") ? "video" : "image",
+            type: (uploadRes.contentType || "").startsWith("video") ? "video" : "image",
             storageKey: uploadRes.filePath || "",
           };
         } else {
