@@ -143,7 +143,13 @@ export const config = {
     /*
      * Every page route (so maintenance mode can gate the whole site), minus
      * API handlers, Next internals and static assets.
+     *
+     * The crawler and site-verification files are excluded too. They were
+     * being caught by maintenance mode and answered with a redirect to
+     * /login, which reads to Google and Bing as "no robots.txt, no sitemap,
+     * verification failed" — the one thing maintenance mode should never do
+     * is quietly de-index the site.
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|hdr/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|hdr|mp4|webm|woff|woff2)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|hdr/|robots\\.txt|sitemap\\.xml|llms\\.txt|indexnow-key\\.txt|BingSiteAuth\\.xml|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|hdr|mp4|webm|woff|woff2)$).*)",
   ],
 };

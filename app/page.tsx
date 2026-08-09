@@ -28,7 +28,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { notify } from "@/lib/notify";
-import { markDataReady } from "@/hooks/useBootStatus";
+import { markDataReady, useBootStatus } from "@/hooks/useBootStatus";
 import StackedCardsHero from "@/Components/StackedCardsHero";
 import ProjectsStack from "@/Components/ProjectsStack";
 import EditableText from "@/Components/editable/EditableText";
@@ -199,6 +199,8 @@ export default function HomePage() {
   const horizontalRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  /** The hero's entrance waits on this so it plays in front of the visitor. */
+  const { curtainLifted } = useBootStatus();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
@@ -266,8 +268,16 @@ export default function HomePage() {
       : publicPackages
   ).slice(0, 3);
 
-  // ── Static animations (hero + section reveals) ───────────────────────────
+  /**
+   * ── Hero entrance ─────────────────────────────────────────────────────────
+   *
+   * Held until the loading curtain is gone. Firing it on mount meant it
+   * played out behind an opaque overlay, so the hero was already in place by
+   * the time anyone could see it and the animation read as missing.
+   */
   useEffect(() => {
+    if (!curtainLifted) return;
+
     // Watchdog: if the GSAP tween is ever prevented from finishing (throttled
     // tab, ticker stall, third-party breakage), force the hero visible. This
     // is what guarantees the "opacity stuck at 0" bug can never come back.
@@ -299,7 +309,17 @@ export default function HomePage() {
           clearProps: "all",
         },
       );
+    }, containerRef);
 
+    return () => {
+      clearTimeout(watchdog);
+      ctx.revert();
+    };
+  }, [curtainLifted]);
+
+  // ── Section reveals (scroll-driven, safe to bind immediately) ────────────
+  useEffect(() => {
+    const ctx = gsap.context(() => {
       gsap.utils.toArray<HTMLElement>(".reveal-item").forEach((item) => {
         gsap.fromTo(
           item,
@@ -340,10 +360,7 @@ export default function HomePage() {
       }
     }, containerRef);
 
-    return () => {
-      clearTimeout(watchdog);
-      ctx.revert();
-    };
+    return () => ctx.revert();
   }, []);
 
   // ── Featured packages reveal (waits for data) ─────────────────────────────

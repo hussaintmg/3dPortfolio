@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongoose";
 import Package from "@/models/Package";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { pingIndexNow } from "@/lib/indexnow";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -34,6 +35,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       discountPercent,
     }, { returnDocument: "after" });
 
+    // Bespoke packages stay out of the index — see the create route
+    if (updated && !updated.isCustom) {
+      pingIndexNow([`/packages/${id}`, "/packages"]);
+    }
+
     return NextResponse.json({ success: true, package: updated });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
@@ -53,7 +59,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
     }
 
-    await Package.findByIdAndDelete(id);
+    const removed = await Package.findByIdAndDelete(id);
+
+    // Submitting the gone page is how the 404 gets noticed and the stale
+    // entry drops out of the index
+    if (removed && !removed.isCustom) {
+      pingIndexNow([`/packages/${id}`, "/packages"]);
+    }
+
     return NextResponse.json({ success: true, message: "Package deleted" });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

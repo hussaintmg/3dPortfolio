@@ -15,6 +15,7 @@ export async function GET() {
   let custom = "";
   let themeColor = "#0083fe";
   let backgroundColor = "#0b0f19";
+  let version = 0;
 
   try {
     await dbConnect();
@@ -24,9 +25,21 @@ export async function GET() {
     if (s?.appIconUrl) custom = s.appIconUrl;
     if (s?.themeColor) themeColor = s.themeColor;
     if (s?.backgroundColor) backgroundColor = s.backgroundColor;
+    if (s?.updatedAt) version = new Date(s.updatedAt).getTime();
   } catch {
     // fall back to the bundled defaults
   }
+
+  /**
+   * Stamp the icon URL with the settings' save time.
+   *
+   * Uploading a replacement produces a NEW storage URL, so this is belt and
+   * braces — but an owner who re-uploads over the same key would otherwise
+   * hit the CDN's copy of the old picture forever, which is exactly the
+   * "icon updated once and never again" symptom.
+   */
+  const bust = (url: string) =>
+    version ? `${url}${url.includes("?") ? "&" : "?"}v=${version}` : url;
 
   /**
    * An uploaded icon is already square (the uploader crops it), so the same
@@ -35,9 +48,9 @@ export async function GET() {
    */
   const icons = custom
     ? [
-        { src: custom, sizes: "192x192", type: "image/png", purpose: "any" as const },
-        { src: custom, sizes: "512x512", type: "image/png", purpose: "any" as const },
-        { src: custom, sizes: "512x512", type: "image/png", purpose: "maskable" as const },
+        { src: bust(custom), sizes: "192x192", type: "image/png", purpose: "any" as const },
+        { src: bust(custom), sizes: "512x512", type: "image/png", purpose: "any" as const },
+        { src: bust(custom), sizes: "512x512", type: "image/png", purpose: "maskable" as const },
       ]
     : [
         { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" as const },
@@ -75,9 +88,14 @@ export async function GET() {
   return NextResponse.json(manifest, {
     headers: {
       "Content-Type": "application/manifest+json",
-      // Revalidate every time: a stale manifest is why a freshly uploaded
-      // icon kept showing the old one on the home screen.
-      "Cache-Control": "public, max-age=0, must-revalidate",
+      // Never store it: `must-revalidate` still let some browsers serve the
+      // cached copy, which is why a freshly uploaded icon kept showing the
+      // old one on the home screen.
+      "Cache-Control": "no-store, max-age=0",
     },
   });
 }
+
+/** Read fresh on every request — the icon changes whenever settings are saved. */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;

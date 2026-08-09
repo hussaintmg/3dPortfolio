@@ -55,6 +55,13 @@ export const adminDashboardLinks = [
     dropdown: null,
   },
   {
+    // Fingerprint / face enrolment lives here — an admin had no route to it
+    name: "My Profile",
+    url: "/dashboard/profile",
+    icon: "UserRound",
+    dropdown: null,
+  },
+  {
     name: "Chat Support",
     url: "/dashboard/chat",
     icon: "MessageSquare",
@@ -97,9 +104,23 @@ export const ownerDashboardLinks = [
     ],
   },
   {
+    // The owner talks to every client from here — without this entry the page
+    // existed but there was no way to reach it from the sidebar.
+    name: "Chat Support",
+    url: "/dashboard/chat",
+    icon: "MessageSquare",
+    dropdown: null,
+  },
+  {
     name: "Enquires",
     url: "/dashboard/enquiries",
     icon: "Inbox",
+    dropdown: null,
+  },
+  {
+    name: "Subscribers",
+    url: "/dashboard/subscribers",
+    icon: "Mails",
     dropdown: null,
   },
   {

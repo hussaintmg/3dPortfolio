@@ -10,6 +10,9 @@ import {
   CheckCircle2,
   ExternalLink,
   AlertTriangle,
+  Link2,
+  Undo2,
+  Ban,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
@@ -172,6 +175,34 @@ export default function DashboardInvoices() {
     }
   };
 
+  /** Status changes that need no extra input — reopen, cancel, un-cancel. */
+  const setStatus = async (inv: Invoice, status: string, label: string) => {
+    try {
+      setSubmitting(true);
+      const res = await axios.patch(`/api/invoices/${inv._id}`, { status });
+      if (res.data.success) {
+        notify.success(label, inv.number);
+        fetchAll();
+      } else notify.error("Update failed", res.data.message);
+    } catch (err: any) {
+      notify.error("Update failed", err.response?.data?.message || err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /** The link the client opens — handy to paste into WhatsApp. */
+  const copyLink = async (inv: Invoice) => {
+    const url = `${window.location.origin}/portal/invoices/${inv._id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      notify.success("Link copied", "Paste it to the client");
+    } catch {
+      // Clipboard is blocked on insecure origins — show it so it can be copied
+      notify.info("Copy this link", url);
+    }
+  };
+
   const deleteInvoice = async () => {
     if (!deletingId) return;
     try {
@@ -252,52 +283,98 @@ export default function DashboardInvoices() {
       locked: true,
       className: "text-right",
       headerClassName: "text-right",
-      cell: (r) => (
-        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          {r.status !== "paid" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setPayFor(r);
-              }}
-              title="Mark as paid"
-              className="size-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all"
-            >
-              <CheckCircle2 size={15} />
-            </button>
-          )}
-          <div onClick={(e) => e.stopPropagation()}>
-            <PdfDownloadButton
-              invoiceId={r._id}
-              filename={`${r.number}.pdf`}
-              label="PDF"
-              allowEmail
-              className="px-4 py-2 text-[10px]"
-            />
-          </div>
-          <a
-            href={`/portal/invoices/${r._id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            title="Open invoice"
-            className="size-9 rounded-xl bg-white/5 flex items-center justify-center text-gray-400 hover:bg-accent hover:text-white transition-all"
-          >
-            <ExternalLink size={15} />
-          </a>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeletingId(r._id);
-            }}
-            className="size-9 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 hover:bg-red-500 hover:text-white transition-all"
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
-      ),
+      cell: (r) => renderActions(r, "end"),
     },
   ];
+
+  /**
+   * Every action an invoice supports, in one place.
+   *
+   * Always visible. They used to be `opacity-0 group-hover:opacity-100`,
+   * which on a phone means permanently invisible — there is no hover — so
+   * the whole row of controls simply wasn't there. And the card layout had
+   * no actions at all.
+   */
+  const renderActions = (inv: Invoice, align: "start" | "end" = "start") => {
+    const stop = (e: React.MouseEvent) => e.stopPropagation();
+    const btn =
+      "size-9 rounded-xl flex items-center justify-center transition-all shrink-0 cursor-pointer disabled:opacity-40";
+
+    return (
+      <div
+        onClick={stop}
+        className={`flex flex-wrap items-center gap-2 ${
+          align === "end" ? "justify-end" : "justify-start"
+        }`}
+      >
+        {inv.status !== "paid" && inv.status !== "cancelled" && (
+          <button
+            onClick={() => setPayFor(inv)}
+            title="Mark as paid"
+            className={`${btn} bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white`}
+          >
+            <CheckCircle2 size={15} />
+          </button>
+        )}
+
+        {inv.status === "paid" && (
+          <button
+            onClick={() => setStatus(inv, "unpaid", "Reopened as unpaid")}
+            disabled={submitting}
+            title="Reopen — mark unpaid again"
+            className={`${btn} bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white`}
+          >
+            <Undo2 size={15} />
+          </button>
+        )}
+
+        <PdfDownloadButton
+          invoiceId={inv._id}
+          filename={`${inv.number}.pdf`}
+          label="PDF"
+          allowEmail
+          className="px-4 py-2 text-[10px]"
+        />
+
+        <button
+          onClick={() => copyLink(inv)}
+          title="Copy the client's link"
+          className={`${btn} bg-white/5 text-gray-400 hover:bg-accent hover:text-white`}
+        >
+          <Link2 size={15} />
+        </button>
+
+        <a
+          href={`/portal/invoices/${inv._id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open invoice"
+          className={`${btn} bg-white/5 text-gray-400 hover:bg-accent hover:text-white`}
+        >
+          <ExternalLink size={15} />
+        </a>
+
+        {inv.status !== "cancelled" && inv.status !== "paid" && (
+          <button
+            onClick={() => setStatus(inv, "cancelled", "Invoice cancelled")}
+            disabled={submitting}
+            title="Cancel this invoice"
+            className={`${btn} bg-white/5 text-gray-500 hover:bg-gray-600 hover:text-white`}
+          >
+            <Ban size={15} />
+          </button>
+        )}
+
+        <button
+          onClick={() => setDeletingId(inv._id)}
+          title="Delete permanently"
+          className={`${btn} bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white`}
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-10">
@@ -330,20 +407,18 @@ export default function DashboardInvoices() {
           loading={loading}
           emptyMessage="No invoices yet — create your first one above."
           gridCols={3}
-          renderCard={(inv: any) => (
+          renderCard={(inv: Invoice) => (
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-black text-white truncate">
-                    {inv.number || inv.invoiceNumber || "Invoice"}
+                    {inv.number || "Invoice"}
                   </p>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 truncate">
-                    {inv.clientName || inv.client?.username || "—"}
+                    {inv.clientName || "—"}
                   </p>
                 </div>
-                <span className="shrink-0 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-400">
-                  {inv.status || "draft"}
-                </span>
+                <StatusBadge status={inv.isOverdue ? "overdue" : inv.status} />
               </div>
               <p className="text-2xl font-black text-white tracking-tighter tabular-nums">
                 {inv.currency || "USD"} {Number(inv.total ?? 0).toLocaleString()}
@@ -351,10 +426,14 @@ export default function DashboardInvoices() {
               <p className="text-[10px] font-bold text-gray-600">
                 {inv.dueDate
                   ? `Due ${new Date(inv.dueDate).toLocaleDateString()}`
-                  : inv.createdAt
-                    ? `Created ${new Date(inv.createdAt).toLocaleDateString()}`
+                  : inv.issuedAt
+                    ? `Issued ${new Date(inv.issuedAt).toLocaleDateString()}`
                     : ""}
               </p>
+              {/* The card had no controls at all — same actions as the table */}
+              <div className="pt-2 border-t border-white/8">
+                {renderActions(inv)}
+              </div>
             </div>
           )}
         />

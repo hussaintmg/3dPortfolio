@@ -53,6 +53,27 @@ const FALLBACK: SeoProfile = {
   imageUrl: `${SITE_URL}/icons/icon-512.png`,
 };
 
+/**
+ * Google truncates a snippet around 155–160 characters but will happily write
+ * its own if yours is too thin to be useful. Anything under this reads as a
+ * placeholder, so we use the fuller default instead.
+ */
+const MIN_USEFUL_DESCRIPTION = 90;
+
+/**
+ * Guarantees the person's name is in the title tag.
+ *
+ * The owner's own title was "Cybogen | AI Engineer & Full-Stack Developer" —
+ * a brand that collides with an established UK company and a job title
+ * millions of people share, with the one genuinely distinctive term, the
+ * name, left out. A title tag that omits it cannot win a search for it.
+ */
+function withPersonName(title: string, person: string) {
+  if (!person) return title;
+  if (title.toLowerCase().includes(person.toLowerCase())) return title;
+  return `${person} — ${title}`;
+}
+
 /** Reads the owner's live settings, falling back to the bundled defaults. */
 export async function getSeoProfile(): Promise<SeoProfile> {
   try {
@@ -61,11 +82,18 @@ export async function getSeoProfile(): Promise<SeoProfile> {
     if (!s) return FALLBACK;
 
     const siteName = s.websiteName || FALLBACK.siteName;
+    const stored = (s.description || "").trim();
+
     return {
       siteName,
       personName: FALLBACK.personName,
-      title: s.title || `${siteName} — AI Engineer & Full-Stack Web Developer`,
-      description: s.description || FALLBACK.description,
+      title: withPersonName(
+        s.title ||
+          `${FALLBACK.personName} — AI Engineer & Full-Stack Web Developer | ${siteName}`,
+        FALLBACK.personName,
+      ),
+      description:
+        stored.length >= MIN_USEFUL_DESCRIPTION ? stored : FALLBACK.description,
       email: s.email || FALLBACK.email,
       phone: s.phone || FALLBACK.phone,
       address: s.address || FALLBACK.address,

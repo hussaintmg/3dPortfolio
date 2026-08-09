@@ -169,6 +169,18 @@
   animation-delay: calc(0.9s + var(--hero-i, 0) * 0.12s);
 }
 
+/*
+ * Hold the entrance while the loading curtain is up.
+ *
+ * The curtain can stay for up to ~3s, and a 1s animation that starts at 0.9s
+ * had long finished by the time anyone could see it — the hero simply
+ * appeared, fully arrived. HomeLoader adds this class on mount and drops it
+ * the moment the curtain goes, so the animation starts when it is watchable.
+ */
+body.booting .hero-fallback {
+  animation-play-state: paused;
+}
+
 :root {
   --background: #0b0f19;
   --foreground: #e5e7eb;

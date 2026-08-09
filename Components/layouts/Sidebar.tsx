@@ -33,6 +33,7 @@ import {
   Braces,
   CreditCard,
   Bot,
+  Mails,
 } from "lucide-react";
 import {
   userDashboardLinks,
@@ -42,6 +43,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { gsap } from "gsap";
 import { webData } from "@/constants/webData";
+import { useSite } from "@/context/SiteContext";
 
 const iconMap = {
   LayoutDashboard: <LayoutDashboard size={18} />,
@@ -65,6 +67,7 @@ const iconMap = {
   Braces: <Braces size={18} />,
   CreditCard: <CreditCard size={18} />,
   Bot: <Bot size={18} />,
+  Mails: <Mails size={18} />,
 };
 
 interface SidebarLink {
@@ -86,6 +89,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname() || "";
   const { user, logout } = useAuth();
+  const { settings } = useSite();
   const router = useRouter();
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>(
     {},
@@ -227,7 +231,10 @@ export default function Sidebar({
               className="text-xl font-bold tracking-tight text-white whitespace-nowrap overflow-hidden transition-opacity"
               style={{ opacity: isOpen ? 1 : 0 }}
             >
-              {webData.websiteName} <span className="text-[#6366F1]">Portal</span>
+              {/* Live settings, not the bundled constant — saving a new site
+                  name in the dashboard has to show up here too */}
+              {settings.websiteName || webData.websiteName}{" "}
+              <span className="text-[#6366F1]">Portal</span>
             </div>
           </Link>
 

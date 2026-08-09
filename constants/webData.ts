@@ -1,5 +1,5 @@
 export const webData = {
-  websiteName: "Cybogen",
+  websiteName: "Vectogen",
   email: "hussaintmerng@gmail.com",
   phone: "+92 3191634446",
   hero: {
@@ -10,7 +10,7 @@ export const webData = {
   },
   address: "Pakistan",
   footer: {
-    copyright: "© 2024 Cybogen. All rights reserved.",
+    copyright: "© 2026 Vectogen. All rights reserved.",
     address: "Pakistan",
     socials: [
       { name: "GitHub", url: "https://github.com/hussaintmg", icon: "Github" },

@@ -2,6 +2,8 @@
 
 import { UserRound } from "lucide-react";
 import ProfileEditor from "@/Components/profile/ProfileEditor";
+import PasskeyManager from "@/Components/auth/PasskeyManager";
+import FaceUnlockManager from "@/Components/auth/FaceUnlockManager";
 
 export default function DashboardProfilePage() {
   return (
@@ -15,12 +17,21 @@ export default function DashboardProfilePage() {
             My Profile
           </h1>
           <p className="text-gray-400 font-medium text-sm">
-            Your photo, name and password. This is your own account — site
-            branding lives under Settings.
+            Your photo, name, password and sign-in devices. This is your own
+            account — site branding lives under Settings.
           </p>
         </header>
 
         <ProfileEditor />
+
+        {/*
+          Enrolling a fingerprint lived only under Site Settings, which is
+          owner-only and sits below a wall of branding fields — so for an
+          admin there was no way to add one at all. It belongs with the
+          account it protects.
+        */}
+        <PasskeyManager />
+        <FaceUnlockManager />
       </div>
     </div>
   );

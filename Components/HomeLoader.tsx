@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useSite } from "@/context/SiteContext";
-import { useBootStatus, resetBootStatus } from "@/hooks/useBootStatus";
+import {
+  useBootStatus,
+  resetBootStatus,
+  markCurtainLifted,
+} from "@/hooks/useBootStatus";
+import LoadingScreen from "./LoadingScreen";
 
 /**
  * Nothing should ever hold the site hostage — bail out after this.
  *
- * Deliberately short. The old nine seconds meant the hero's entrance
- * animations had already played out behind the curtain, so it lifted onto a
- * page that had finished moving. Three seconds is enough to cover the first
- * paint without swallowing the thing it exists to reveal.
+ * The hero's entrance now waits for the curtain rather than playing behind
+ * it, so a couple of extra seconds costs a visitor nothing except a couple of
+ * extra seconds. Three and a bit keeps it honest on a slow connection.
  */
 const MAX_WAIT = 3200;
 /** A beat of stillness once everything is in, so the exit doesn't snap. */
@@ -31,15 +34,23 @@ const SCENE_GRACE = 900;
  * The home page's loading curtain.
  *
  * It sits ABOVE the 3D layer, which keeps rendering behind it, so the sphere
- * is already alive and settled by the time the curtain lifts — the previous
- * approach showed a flat CSS stand-in first and then swapped, which read as a
- * second, wrong-looking shape. The curtain stays until both the scene and the
- * page's own data are in, then eases away.
+ * is already alive and settled by the time the curtain lifts. When it goes it
+ * announces itself through the boot store, and that is the cue the hero's
+ * animation waits on.
  */
 export default function HomeLoader() {
   const { sceneReady, dataReady } = useBootStatus();
   const { settings } = useSite();
   const [visible, setVisible] = useState(true);
+  /**
+   * Kept separate from `visible` so the curtain is guaranteed to leave.
+   *
+   * AnimatePresence only unmounts once the exit animation finishes, and that
+   * animation is driven by requestAnimationFrame — which a browser pauses
+   * outright in a background tab. Open the site in a tab you don't switch to
+   * and the curtain simply never goes. This timer removes it either way.
+   */
+  const [mounted, setMounted] = useState(true);
   const [progress, setProgress] = useState(8);
   const timedOut = useRef(false);
 
@@ -88,90 +99,52 @@ export default function HomeLoader() {
     return () => clearTimeout(bail);
   }, []);
 
-  // The page underneath must not scroll while the curtain is up
+  /**
+   * The page underneath must not scroll while the curtain is up, and its
+   * CSS entrance animations must not burn through either — `body.booting`
+   * pauses them (see globals.css).
+   */
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      // Tell the hero it may play now
+      markCurtainLifted();
+      document.body.classList.remove("booting");
+      return;
+    }
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    document.body.classList.add("booting");
     return () => {
       document.body.style.overflow = prev;
+      document.body.classList.remove("booting");
     };
+  }, [visible]);
+
+  /** Backstop for the exit animation — see `mounted` above. */
+  useEffect(() => {
+    if (visible) return;
+    const id = setTimeout(() => setMounted(false), 1200);
+    return () => clearTimeout(id);
   }, [visible]);
 
   const name = settings.websiteName || "Portfolio";
 
+  if (!mounted) return null;
+
   return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          key="home-loader"
-          initial={{ opacity: 1 }}
-          exit={{
-            opacity: 0,
-            filter: "blur(14px)",
-            transition: { duration: 0.85, ease: [0.22, 1, 0.36, 1] },
-          }}
-          className="fixed inset-0 z-[9998] flex flex-col items-center justify-center pointer-events-auto"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          {/* Translucent, so the sphere behind is already visible and settled
-              by the time this lifts rather than appearing out of nowhere. */}
-          <div className="absolute inset-0 bg-[#05060d]/94 backdrop-blur-2xl" />
-
-          <div className="relative flex flex-col items-center gap-7 px-8">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="flex flex-col items-center gap-3"
-            >
-              <span className="text-[10px] font-black uppercase tracking-[0.45em] text-accent">
-                {name}
-              </span>
-              <span className="text-[11px] font-medium text-gray-500 tabular-nums">
-                {timedOut.current
-                  ? "Almost there"
-                  : !sceneReady
-                    ? "Preparing the scene"
-                    : !dataReady
-                      ? "Fetching your work"
-                      : "Ready"}
-              </span>
-            </motion.div>
-
-            {/* Determinate bar: it reflects real readiness, not a fake timer */}
-            <div className="h-[3px] w-56 sm:w-72 rounded-full bg-white/8 overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-linear-to-r from-indigo-500 via-accent to-indigo-400"
-                animate={{ width: `${Math.min(100, progress)}%` }}
-                transition={{ ease: "easeOut", duration: 0.35 }}
-              />
-            </div>
-
-            <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-[0.25em]">
-              {[
-                ["Scene", sceneReady],
-                ["Content", dataReady],
-              ].map(([label, done]) => (
-                <span
-                  key={label as string}
-                  className={`flex items-center gap-1.5 transition-colors duration-300 ${
-                    done ? "text-green-400" : "text-gray-700"
-                  }`}
-                >
-                  <span
-                    className={`size-1.5 rounded-full transition-colors duration-300 ${
-                      done ? "bg-green-400" : "bg-gray-700 animate-pulse"
-                    }`}
-                  />
-                  {label as string}
-                </span>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <LoadingScreen
+      isVisible={visible}
+      progress={progress}
+      title={name}
+      status={
+        timedOut.current
+          ? "Almost there"
+          : !sceneReady
+            ? "Preparing the scene"
+            : !dataReady
+              ? "Fetching your work"
+              : "Ready"
+      }
+    />
   );
 }

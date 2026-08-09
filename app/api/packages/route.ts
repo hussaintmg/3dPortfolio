@@ -4,6 +4,7 @@ import Package from "@/models/Package";
 import PackageAssignment from "@/models/PackageAssignment";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { pingIndexNow } from "@/lib/indexnow";
 
 /**
  * GET — the catalogue.
@@ -80,6 +81,12 @@ export async function POST(req: Request) {
       discountedPrice,
       discountPercent,
     });
+
+    // Bespoke packages belong to one client and are kept out of the sitemap —
+    // handing them to a search engine would undo exactly that
+    if (!pkg.isCustom) {
+      pingIndexNow([`/packages/${pkg._id}`, "/packages"]);
+    }
 
     return NextResponse.json({ success: true, package: pkg });
   } catch (error: any) {

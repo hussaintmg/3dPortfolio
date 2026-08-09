@@ -4,6 +4,7 @@ import Project from "@/models/Project";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { deleteFileFromSupabase } from "@/lib/supabase";
+import { pingIndexNow } from "@/lib/indexnow";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,6 +32,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const updated = await Project.findByIdAndUpdate(id, body, { returnDocument: "after" });
+
+    pingIndexNow([`/projects/${id}`, "/projects"]);
+
     return NextResponse.json({ success: true, project: updated });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
@@ -56,6 +60,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     await Project.findByIdAndDelete(id);
+
+    // A removed page is worth submitting too — it is how the 404 gets noticed
+    // and the stale entry drops out of the index
+    pingIndexNow([`/projects/${id}`, "/projects"]);
+
     return NextResponse.json({ success: true, message: "Project deleted" });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

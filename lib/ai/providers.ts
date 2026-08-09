@@ -114,6 +114,32 @@ function baseUrlFor(config: ProviderConfig): string {
   }
 }
 
+/**
+ * Turns a hybrid reasoning model's thinking off at the prompt level.
+ *
+ * Nemotron and Qwen3 ignore the API's `reasoning` switch — their chat
+ * template is driven by a magic phrase in the system message instead. Without
+ * it these models answer every request with several thousand tokens of "we
+ * need to… let's count the words…" and never reach the actual reply, which
+ * reaches the client verbatim.
+ */
+function quietenReasoning(model: string, messages: ChatMessage[]): ChatMessage[] {
+  const m = model.toLowerCase();
+  const directive = m.includes("nemotron")
+    ? "detailed thinking off"
+    : /qwen3|qwq/.test(m)
+      ? "/no_think"
+      : null;
+
+  if (!directive) return messages;
+
+  const first = messages[0];
+  if (first?.role === "system") {
+    return [{ ...first, content: `${directive}\n\n${first.content}` }, ...messages.slice(1)];
+  }
+  return [{ role: "system", content: directive }, ...messages];
+}
+
 /** OpenAI-dialect providers: OpenRouter, Groq and anything compatible. */
 async function callOpenAiStyle(
   config: ProviderConfig,
@@ -138,9 +164,30 @@ async function callOpenAiStyle(
     signal,
     body: JSON.stringify({
       model: config.model,
-      messages,
+      messages: quietenReasoning(config.model, messages),
       temperature: opts.temperature ?? 0.6,
       max_tokens: opts.maxTokens ?? 400,
+      /**
+       * Keep reasoning out of the answer.
+       *
+       * Several of the free models on OpenRouter are reasoning models, and by
+       * default their chain of thought arrives inside `message.content` —
+       * so the assistant replies to a client with "The user says… let's draft
+       * a subject line…" instead of the actual message. Unknown fields are
+       * ignored by providers that don't reason, so this is safe everywhere.
+       */
+      ...(config.kind === "openrouter"
+        ? {
+            reasoning: { exclude: true },
+            include_reasoning: false,
+            /**
+             * Hybrid reasoning models (Nemotron, Qwen3) don't use the
+             * `reasoning` field at all — they think in plain content unless
+             * the chat template is told not to. This is the switch for them.
+             */
+            chat_template_kwargs: { thinking: false },
+          }
+        : {}),
     }),
   });
 
@@ -160,7 +207,22 @@ async function callOpenAiStyle(
   if (typeof text !== "string" || !text.trim()) {
     throw new Error(json?.error?.message || "Provider returned an empty reply");
   }
-  return text.trim();
+  return stripThinking(text);
+}
+
+/**
+ * Last line of defence against leaked chain-of-thought.
+ *
+ * `reasoning: { exclude: true }` covers OpenRouter, but a self-hosted or
+ * Groq-served reasoning model can still emit `<think>…</think>` inline. It is
+ * never part of an answer, so it never reaches the caller.
+ */
+function stripThinking(text: string) {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+    .trim();
 }
 
 /** Gemini's generateContent shape: system prompt is separate, roles differ. */

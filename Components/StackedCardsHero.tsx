@@ -32,24 +32,33 @@ export default function StackedCardsHero() {
               className="hero-anim hero-fallback inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-1.5 text-[10px] font-bold text-blue-300 backdrop-blur-md uppercase tracking-[0.2em]"
             >
               <Sparkles size={12} className="text-blue-400" />
-              <EditableText k="home.hero.badge">Digital Architecture</EditableText>
+              <EditableText k="home.hero.badge">
+                AI Engineer · Full-Stack Web Developer
+              </EditableText>
             </div>
 
+            {/*
+              The page's one H1, and the strongest on-page ranking signal there
+              is. It used to read "Designing and building high-performance web
+              systems." — no name, no job title, nothing anybody searches for.
+              A search engine had no way to connect this page to "Hussain" or
+              to "web developer", and it duly connected it to neither.
+            */}
             <h1
               style={{ "--hero-i": 1 } as React.CSSProperties}
-              className={`hero-anim hero-fallback text-4xl sm:text-5xl md:text-6xl lg:text-[4rem] font-bold tracking-tight leading-[1.1] text-white/95 ${spaceGrotesk.className}`}
+              className={`hero-anim hero-fallback text-4xl sm:text-5xl md:text-6xl lg:text-[3.6rem] font-bold tracking-tight leading-[1.1] text-white/95 ${spaceGrotesk.className}`}
             >
               <EditableText k="home.hero.heading.pre">
-                Designing and building
+                Hussain —
               </EditableText>{" "}
               <br className="hidden md:block" />
               <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-purple-400">
                 <EditableText k="home.hero.heading.highlight">
-                  high-performance
+                  AI Engineer
                 </EditableText>
               </span>{" "}
               <EditableText k="home.hero.heading.tail">
-                web systems.
+                &amp; Full-Stack Web Developer
               </EditableText>
             </h1>
 
@@ -58,8 +67,10 @@ export default function StackedCardsHero() {
               className="hero-anim hero-fallback text-base md:text-lg lg:text-xl text-slate-400 max-w-xl font-normal leading-relaxed"
             >
               <EditableText k="home.hero.subheading">
-                I develop fast, scalable, and visually refined web applications,
-                where clean architecture meets modern user experience.
+                I build fast, scalable web applications with Next.js, React and
+                Node.js, and wire real AI — assistants, retrieval, automation —
+                into products people actually use. Available worldwide for
+                freelance and contract work.
               </EditableText>
             </p>
 

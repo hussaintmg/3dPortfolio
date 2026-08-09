@@ -361,3 +361,155 @@ export async function notifyOwnerNewAdmin(ownerEmail: string, adminDetails: { us
   };
   return await transporter.sendMail(mailOptions);
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Newsletter
+ * ──────────────────────────────────────────────────────────────────────────*/
+
+/** Anything pasted into a campaign is owner-authored, but escape it anyway. */
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export interface CampaignEmail {
+  to: string;
+  subject: string;
+  /** Plain text. Blank lines become paragraphs; "- " lines become bullets. */
+  body: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** Required by law in most places, and by every inbox provider's filter. */
+  unsubscribeUrl: string;
+  siteName?: string;
+  siteUrl?: string;
+}
+
+/**
+ * Renders the owner's plain text into the same shell every other email uses.
+ *
+ * Writing HTML by hand for each send is how newsletters end up broken in
+ * Outlook, so the composer takes text and this puts the table scaffolding,
+ * the button and the unsubscribe footer around it.
+ */
+function renderCampaignBody(body: string) {
+  const blocks = body.split(/\n{2,}/).filter((b) => b.trim());
+
+  return blocks
+    .map((block) => {
+      const lines = block.split("\n").filter((l) => l.trim());
+      const bullets = lines.filter((l) => /^\s*[-*•]\s+/.test(l));
+
+      if (bullets.length === lines.length && bullets.length > 0) {
+        const items = bullets
+          .map(
+            (l) =>
+              `<li style="margin:0 0 8px 0;color:#475569;font-size:15px;line-height:1.6;">${escapeHtml(
+                l.replace(/^\s*[-*•]\s+/, ""),
+              )}</li>`,
+          )
+          .join("");
+        return `<ul style="margin:0 0 20px 0;padding-left:20px;">${items}</ul>`;
+      }
+
+      return `<p style="margin:0 0 18px 0;color:#475569;font-size:15px;line-height:1.7;">${escapeHtml(
+        block,
+      ).replace(/\n/g, "<br/>")}</p>`;
+    })
+    .join("");
+}
+
+export async function sendCampaignEmail(opts: CampaignEmail) {
+  const siteName = opts.siteName || webData.websiteName;
+  const siteUrl = opts.siteUrl || process.env.NEXT_PUBLIC_BASE_URL || "";
+
+  const cta =
+    opts.ctaLabel && opts.ctaUrl
+      ? `<div style="text-align:center;margin:32px 0 8px;">
+           <a href="${opts.ctaUrl}" style="display:inline-block;background:linear-gradient(135deg,#6366F1 0%,#4F46E5 100%);color:#ffffff;padding:14px 34px;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;">${escapeHtml(
+             opts.ctaLabel,
+           )}</a>
+         </div>`
+      : "";
+
+  return transporter.sendMail({
+    from: `"${siteName}" <${process.env.EMAIL_USER}>`,
+    to: opts.to,
+    subject: opts.subject,
+    /**
+     * Gmail and Outlook both surface a native "Unsubscribe" control from
+     * these headers. Offering it there is what keeps a legitimate list out
+     * of the spam folder — people who can't find the link report instead.
+     */
+    headers: {
+      "List-Unsubscribe": `<${opts.unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+    html: `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${escapeHtml(
+      opts.subject,
+    )}</title></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;background-color:#f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f5f5;padding:40px 0;">
+    <tr><td align="center">
+      <table cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.08);overflow:hidden;">
+        <tr><td style="background:linear-gradient(135deg,#6366F1 0%,#4F46E5 100%);padding:34px 30px;text-align:center;">
+          <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.5px;">${escapeHtml(
+            siteName,
+          )}</h1>
+        </td></tr>
+        <tr><td style="padding:36px 32px 24px;">
+          <h2 style="margin:0 0 22px 0;color:#0f172a;font-size:20px;font-weight:700;line-height:1.35;">${escapeHtml(
+            opts.subject,
+          )}</h2>
+          ${renderCampaignBody(opts.body)}
+          ${cta}
+        </td></tr>
+        <tr><td style="background-color:#f8f9fa;padding:26px 30px;text-align:center;">
+          <p style="margin:0 0 8px 0;color:#94a3b8;font-size:12px;">
+            You are receiving this because you subscribed at
+            <a href="${siteUrl}" style="color:#6366F1;text-decoration:none;">${escapeHtml(
+              siteUrl.replace(/^https?:\/\//, ""),
+            )}</a>.
+          </p>
+          <p style="margin:0;color:#94a3b8;font-size:12px;">
+            <a href="${opts.unsubscribeUrl}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a>
+            &nbsp;·&nbsp; © ${new Date().getFullYear()} ${escapeHtml(siteName)}
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`,
+    text: `${opts.body}\n\n${
+      opts.ctaLabel && opts.ctaUrl ? `${opts.ctaLabel}: ${opts.ctaUrl}\n\n` : ""
+    }Unsubscribe: ${opts.unsubscribeUrl}`,
+  });
+}
+
+/** Confirmation that a footer signup actually landed. */
+export async function sendSubscribeWelcome(opts: {
+  to: string;
+  unsubscribeUrl: string;
+  siteName?: string;
+  siteUrl?: string;
+}) {
+  const siteName = opts.siteName || webData.websiteName;
+  return sendCampaignEmail({
+    to: opts.to,
+    subject: `You're on the list — ${siteName}`,
+    body: [
+      "Thanks for subscribing.",
+      "You'll hear from me when there's something genuinely worth your time: new packages, ready-made solutions you can launch this week, and the occasional note on what I've been building.",
+      "No noise, and one click to leave whenever you like.",
+    ].join("\n\n"),
+    ctaLabel: "See what's available",
+    ctaUrl: `${opts.siteUrl || process.env.NEXT_PUBLIC_BASE_URL || ""}/packages`,
+    unsubscribeUrl: opts.unsubscribeUrl,
+    siteName,
+    siteUrl: opts.siteUrl,
+  });
+}

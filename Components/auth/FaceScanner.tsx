@@ -225,6 +225,9 @@ export default function FaceScanner({
          * detection, and making someone press a button to admit that is a
          * dead end dressed up as a choice. After a few seconds of a clearly
          * present face, carry on — a note explains what was skipped.
+         *
+         * Four seconds, not seven: seven is long enough that people conclude
+         * it has hung and close the modal before it ever gets there.
          */
         if (steps.some((s) => s.requireBlink)) {
           skipTimer = setTimeout(() => {
@@ -232,7 +235,7 @@ export default function FaceScanner({
             blinkRef.current.blinked = true;
             setOfferSkip(true);
             setHint("");
-          }, 7000);
+          }, 4000);
         }
       } catch (err: any) {
         if (cancelled) return;

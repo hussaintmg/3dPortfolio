@@ -38,7 +38,7 @@ export const BUILTIN_VARIABLES = [
   { key: "invoice.url", label: "Invoice link", group: "Invoice", path: "invoice.url", sample: "https://example.com/portal/invoices/1" },
   { key: "package.name", label: "Package name", group: "Package", path: "package.name", sample: "Starter Website" },
   { key: "package.price", label: "Package price", group: "Package", path: "package.priceFormatted", sample: "USD 399" },
-  { key: "site.name", label: "Website name", group: "Site", path: "site.name", sample: "Cybogen" },
+  { key: "site.name", label: "Website name", group: "Site", path: "site.name", sample: "Vectogen" },
   { key: "site.email", label: "Your email", group: "Site", path: "site.email", sample: "hello@example.com" },
   { key: "site.phone", label: "Your phone", group: "Site", path: "site.phone", sample: "+92 300 0000000" },
   { key: "site.address", label: "Your address", group: "Site", path: "site.address", sample: "Pakistan" },

@@ -23,6 +23,8 @@ export default function robots(): MetadataRoute.Robots {
     "/reset-password",
     "/verify-email",
     "/offline",
+    // One-shot transactional page reached from an email footer
+    "/unsubscribe",
   ];
 
   return {

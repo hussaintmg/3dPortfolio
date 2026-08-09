@@ -161,14 +161,52 @@ export async function generateMetadata(): Promise<Metadata> {
      * tab and home-screen icons too. Only the favicon was being applied
      * before, which is why uploading an app icon appeared to do nothing.
      */
-    icons: {
-      icon: s?.faviconUrl || s?.appIconUrl || "/icons/icon-192.png",
-      shortcut: s?.faviconUrl || s?.appIconUrl || "/icons/icon-192.png",
-      apple: s?.appIconUrl || "/icons/apple-touch-icon.png",
+    icons: buildIcons(s),
+    /**
+     * Search Console and Bing Webmaster Tools each want to see their own tag
+     * before they will show a site's indexing status or accept a sitemap.
+     * Bing carries extra weight here: ChatGPT's search reads Bing's index, so
+     * being absent from it means being unquotable there.
+     */
+    ...buildVerification(),
+  };
+}
+
+/**
+ * Tab and home-screen icons, stamped with the settings' save time.
+ *
+ * The uploaded app icon is the best artwork we have, so it drives the tab and
+ * apple-touch icons too. The `?v=` stamp is what makes a REPLACED icon
+ * actually appear: browsers keep favicons cached far longer than pages, so
+ * without it the first upload sticks and every later one looks ignored.
+ */
+function buildIcons(s: any): Pick<Metadata, "icons">["icons"] {
+  const v = s?.updatedAt ? new Date(s.updatedAt).getTime() : 0;
+  const stamp = (url?: string, fallback = "") => {
+    const target = url || fallback;
+    if (!target || !v) return target;
+    return `${target}${target.includes("?") ? "&" : "?"}v=${v}`;
+  };
+
+  return {
+    icon: stamp(s?.faviconUrl || s?.appIconUrl, "/icons/icon-192.png"),
+    shortcut: stamp(s?.faviconUrl || s?.appIconUrl, "/icons/icon-192.png"),
+    apple: stamp(s?.appIconUrl, "/icons/apple-touch-icon.png"),
+  };
+}
+
+function buildVerification(): Pick<Metadata, "verification"> {
+  const google = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+  const bing = process.env.BING_SITE_VERIFICATION?.trim();
+
+  if (!google && !bing) return {};
+
+  return {
+    verification: {
+      ...(google ? { google } : {}),
+      // Bing's tag name, unchanged since it was msn.com's
+      ...(bing ? { other: { "msvalidate.01": bing } } : {}),
     },
-    ...(process.env.GOOGLE_SITE_VERIFICATION
-      ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
-      : {}),
   };
 }
 
@@ -180,6 +218,18 @@ export default async function RootLayout({
   const [{ settings, content, styles, links, animations }, cookieStore, seo] =
     await Promise.all([getSiteData(), cookies(), getSeoProfile()]);
   const jsonLd = buildJsonLd(seo);
+
+  /**
+   * A token that changes whenever the owner saves settings.
+   *
+   * Browsers cache `/manifest.webmanifest` hard, and an installed app only
+   * re-reads its icon when the manifest URL itself looks new — which is why
+   * uploading a second app icon appeared to do nothing after the first one
+   * stuck. Versioning the href forces the refetch.
+   */
+  const iconVersion = settings?.updatedAt
+    ? new Date(settings.updatedAt).getTime()
+    : 0;
 
   // Editing controls are owner-only, so resolve the role on the server
   let isOwner = false;
@@ -227,8 +277,8 @@ export default async function RootLayout({
           crossOrigin="anonymous"
         />
         {/* Installing the app is what makes notifications carry OUR branding */}
-        <link rel="manifest" href="/manifest.webmanifest" />
-        
+        <link rel="manifest" href={`/manifest.webmanifest?v=${iconVersion}`} />
+
         <meta name="theme-color" content="#6366f1" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
