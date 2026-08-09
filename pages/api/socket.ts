@@ -77,6 +77,16 @@ export default function SocketHandler(req: NextApiRequest, res: NextApiResponseW
       if (!payload?.conversationId) return;
       socket.to(`conv:${payload.conversationId}`).emit('chat:delete', payload);
     });
+
+    /**
+     * An edit or a reaction. The message is not new and not gone, so neither
+     * of the events above fits — without this the other side only saw the
+     * change on the next five-second poll.
+     */
+    socket.on('chat:update', (msg: any) => {
+      if (!msg?.conversationId) return;
+      socket.to(`conv:${msg.conversationId}`).emit('chat:update', msg);
+    });
     
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);

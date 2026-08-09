@@ -23,6 +23,10 @@ import {
   Sparkles,
   Bot,
   X,
+  Reply,
+  Pencil,
+  Copy,
+  ListChecks,
 } from "lucide-react";
 import axios from "axios";
 import { notify } from "@/lib/notify";
@@ -66,7 +70,19 @@ export interface ChatMsg {
   heardBy?: string[];
   editedAt?: string | null;
   replyTo?: { id?: string; text?: string; senderName?: string; type?: string };
+  reactions?: { userId: string; emoji: string }[];
 }
+
+/** The row offered on long-press / right-click, WhatsApp-style. */
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+/** A one-line summary of any message, for the reply quote and the menu. */
+const previewOf = (m: ChatMsg) =>
+  m.type === "text"
+    ? m.text
+    : m.type === "audio"
+      ? "Voice note"
+      : m.attachment?.name || m.type;
 
 interface ChatThreadProps {
   /** Staff passes the client's conversation id; clients omit it. */
@@ -158,6 +174,15 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
   const [recording, setRecording] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  /** The message being quoted by whatever is in the composer. */
+  const [replyTo, setReplyTo] = useState<ChatMsg | null>(null);
+  /** An own text message open for rewriting, held separately from the composer. */
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  /** Multi-select for deleting several at once. */
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [confirmBulk, setConfirmBulk] = useState<"me" | "everyone" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; mode: "me" | "everyone" } | null>(null);
   const [viewing, setViewing] = useState<MediaItem | null>(null);
   /** Per-message translation/explanation, keyed by message id. */
@@ -261,6 +286,18 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const threadIdRef = useRef<string>("");
+  /**
+   * Long-press timer, held in a ref rather than a per-render local.
+   *
+   * A local `let` inside the message map is recreated on every render, so a
+   * re-render between touchstart and touchend left the old timer running
+   * with nothing able to clear it — the menu then opened after a tap.
+   */
+  const pressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPress = useCallback(() => {
+    if (pressRef.current) clearTimeout(pressRef.current);
+    pressRef.current = null;
+  }, []);
 
   const isStaff = user?.role === "admin" || user?.role === "owner";
   const threadId = isStaff ? conversationId : user?.id;
@@ -341,11 +378,19 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
       setMessages((prev) => prev.filter((m) => m._id !== p.id));
     };
 
+    /** An edit or a reaction — the message stays, its contents change. */
+    const onUpdate = (msg: ChatMsg) => {
+      if (msg.conversationId !== threadId) return;
+      setMessages((prev) => prev.map((m) => (m._id === msg._id ? msg : m)));
+    };
+
     socket.on("chat:new", onNew);
     socket.on("chat:delete", onDelete);
+    socket.on("chat:update", onUpdate);
     return () => {
       socket.off("chat:new", onNew);
       socket.off("chat:delete", onDelete);
+      socket.off("chat:update", onUpdate);
     };
   }, [threadId, user, isStaff, scrollToBottom]);
 
@@ -378,6 +423,112 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
     setTimeout(() => scrollToBottom(), 60);
   };
 
+  /** Swap one message in place and tell the other side about it. */
+  const applyUpdate = (msg: ChatMsg, broadcast = true) => {
+    setMessages((prev) => prev.map((m) => (m._id === msg._id ? msg : m)));
+    if (broadcast) getSocket().emit("chat:update", msg);
+  };
+
+  /**
+   * Add, change or take back a reaction.
+   *
+   * Applied locally first: the server is the authority, but waiting for a
+   * round-trip to see your own tap land makes the whole thing feel broken on
+   * a slow connection.
+   */
+  const react = async (m: ChatMsg, emoji: string) => {
+    setMenuFor(null);
+    if (!user) return;
+
+    const existing = (m.reactions || []).find((r) => r.userId === user.id);
+    const optimistic: ChatMsg = {
+      ...m,
+      reactions:
+        existing?.emoji === emoji
+          ? (m.reactions || []).filter((r) => r.userId !== user.id)
+          : [
+              ...(m.reactions || []).filter((r) => r.userId !== user.id),
+              { userId: user.id, emoji },
+            ],
+    };
+    applyUpdate(optimistic, false);
+
+    try {
+      const { data } = await axios.patch("/api/chat/message", {
+        id: m._id,
+        action: "react",
+        emoji,
+      });
+      if (data.success) applyUpdate(data.message);
+      else throw new Error(data.message);
+    } catch (err: any) {
+      applyUpdate(m, false); // put it back
+      notify.error("Could not react", err.response?.data?.message || err.message);
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const next = editing.text.trim();
+    if (!next) return;
+    try {
+      setSavingEdit(true);
+      const { data } = await axios.patch("/api/chat/message", {
+        id: editing.id,
+        action: "edit",
+        text: next,
+      });
+      if (!data.success) throw new Error(data.message);
+      applyUpdate(data.message);
+      setEditing(null);
+    } catch (err: any) {
+      notify.error("Edit failed", err.response?.data?.message || err.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // ── Multi-select ──────────────────────────────────────────────────────────
+  const toggleSelected = (id: string) =>
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
+  const leaveSelectMode = () => {
+    setSelecting(false);
+    setSelected([]);
+  };
+
+  const bulkDelete = async () => {
+    if (!confirmBulk || selected.length === 0) return;
+    const mode = confirmBulk;
+    const ids = [...selected];
+    try {
+      setDeleting(true);
+      const { data } = await axios.post("/api/chat/message", { ids, mode });
+      if (!data.success) throw new Error(data.message);
+
+      setMessages((prev) => prev.filter((m) => !ids.includes(m._id)));
+      if (mode === "everyone") {
+        const socket = getSocket();
+        // The delete event is per-message, so one per id
+        ids.forEach((id) =>
+          socket.emit("chat:delete", { conversationId: threadId, id }),
+        );
+      }
+      notify.success(
+        `${data.removed} deleted`,
+        data.skipped ? `${data.skipped} were not yours to delete` : undefined,
+      );
+      leaveSelectMode();
+    } catch (err: any) {
+      notify.error("Delete failed", err.response?.data?.message || err.message);
+    } finally {
+      setDeleting(false);
+      setConfirmBulk(null);
+    }
+  };
+
   const sendText = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const value = text.trim();
@@ -388,9 +539,19 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
         type: "text",
         text: value,
         conversationId: threadId,
+        // A snapshot, not just an id — the original can be deleted later
+        replyTo: replyTo
+          ? {
+              id: replyTo._id,
+              text: previewOf(replyTo),
+              senderName: replyTo.senderName,
+              type: replyTo.type,
+            }
+          : undefined,
       });
       if (res.data.success) {
         setText("");
+        setReplyTo(null);
         pushMessage(res.data.message);
       } else {
         notify.error("Send failed", res.data.message);
@@ -528,6 +689,36 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
 
   return (
     <div className={`flex flex-col h-full min-h-0 ${className || ""}`}>
+      {/* Selection bar — replaces nothing, sits above the thread */}
+      {selecting && (
+        <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 border-b border-white/8 bg-accent/8">
+          <button
+            onClick={leaveSelectMode}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            <X size={15} />
+          </button>
+          <span className="text-xs font-black text-white">
+            {selected.length} selected
+          </span>
+          <div className="flex-1" />
+          <button
+            disabled={selected.length === 0}
+            onClick={() => setConfirmBulk("me")}
+            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-300 hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
+          >
+            Delete for me
+          </button>
+          <button
+            disabled={selected.length === 0}
+            onClick={() => setConfirmBulk("everyone")}
+            className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-[9px] font-black uppercase tracking-widest text-red-400 hover:bg-red-500 hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
+          >
+            For everyone
+          </button>
+        </div>
+      )}
+
       {/* Messages */}
       <div
         ref={listRef}
@@ -562,9 +753,55 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
              */
             const own = m.senderId === user.id || (isStaff && !!m.isAi);
             const canDeleteEveryone = own || isStaff;
+            const isSelected = selected.includes(m._id);
+            /** Only your own words, and only words. */
+            const canEdit = m.senderId === user.id && m.type === "text";
+
+            /**
+             * Long-press opens the menu on touch, where there is no
+             * right-click and no hover — the ⋮ button was `opacity-0
+             * group-hover:opacity-100`, i.e. permanently invisible on a
+             * phone, so none of this was reachable there at all.
+             */
+            const startPress = () => {
+              cancelPress();
+              pressRef.current = setTimeout(() => {
+                if (navigator.vibrate) navigator.vibrate(12);
+                setMenuFor(m._id);
+              }, 450);
+            };
+
             return (
-              <div key={m._id} className={`flex ${own ? "justify-end" : "justify-start"} group`}>
-                <div className={`relative max-w-[85%] sm:max-w-[70%] ${own ? "order-1" : ""}`}>
+              <div
+                key={m._id}
+                onClick={() => selecting && toggleSelected(m._id)}
+                className={`flex ${own ? "justify-end" : "justify-start"} group ${
+                  selecting ? "cursor-pointer" : ""
+                } ${isSelected ? "bg-accent/10 -mx-4 px-4 sm:-mx-6 sm:px-6 py-1 rounded-xl" : ""}`}
+              >
+                {selecting && (
+                  <span
+                    className={`self-center mr-3 size-5 rounded-md border shrink-0 flex items-center justify-center transition-colors ${
+                      isSelected
+                        ? "bg-accent border-accent text-white"
+                        : "border-white/25"
+                    }`}
+                  >
+                    {isSelected && <CheckCheck size={12} />}
+                  </span>
+                )}
+                <div
+                  onContextMenu={(e) => {
+                    if (selecting) return;
+                    e.preventDefault();
+                    setMenuFor(m._id);
+                  }}
+                  onTouchStart={selecting ? undefined : startPress}
+                  onTouchEnd={cancelPress}
+                  onTouchMove={cancelPress}
+                  onTouchCancel={cancelPress}
+                  className={`relative max-w-[85%] sm:max-w-[70%] ${own ? "order-1" : ""}`}
+                >
                   {/* Sender label (only for staff viewing client, or client viewing staff) */}
                   {!own && (
                     <p className="text-[9px] font-black uppercase tracking-widest text-gray-600 mb-1 ml-3 flex items-center gap-1.5">
@@ -603,11 +840,49 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                         : "bg-white/5 text-gray-200 border-white/10 rounded-bl-lg"
                     }`}
                   >
-                    {m.type === "text" && (
+                    {m.type === "text" && editing?.id === m._id ? (
+                      /* Edited in place rather than in the composer — moving
+                         the text down there loses sight of what it replies
+                         to and of the messages around it. */
+                      <div className="p-2.5 space-y-2 min-w-[240px]">
+                        <textarea
+                          autoFocus
+                          value={editing.text}
+                          onChange={(e) =>
+                            setEditing({ id: m._id, text: e.target.value })
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") setEditing(null);
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              saveEdit();
+                            }
+                          }}
+                          rows={2}
+                          className="w-full bg-black/25 border border-white/25 rounded-2xl px-3 py-2 text-sm text-white font-medium outline-none focus:border-white/60 resize-none custom-scrollbar"
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setEditing(null)}
+                            className="px-3 py-1.5 rounded-lg bg-black/25 text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={saveEdit}
+                            disabled={savingEdit || !editing.text.trim()}
+                            className="px-3 py-1.5 rounded-lg bg-white text-black text-[9px] font-black uppercase tracking-widest disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                          >
+                            {savingEdit && <Loader2 size={10} className="animate-spin" />}
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : m.type === "text" ? (
                       <p className="px-4 py-3 text-sm font-medium leading-relaxed whitespace-pre-wrap break-words">
                         {m.text}
                       </p>
-                    )}
+                    ) : null}
                     {m.type === "image" && m.attachment?.url && (
                       <button
                         type="button"
@@ -675,6 +950,48 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                       </a>
                     ) : null}
                   </div>
+                  {/* Reactions, grouped by emoji. Yours is outlined, and
+                      tapping it again takes it back. */}
+                  {(m.reactions?.length ?? 0) > 0 && (
+                    <div
+                      className={`flex flex-wrap gap-1 -mt-1.5 ${own ? "justify-end mr-2" : "ml-3"}`}
+                    >
+                      {Object.entries(
+                        (m.reactions || []).reduce<Record<string, string[]>>(
+                          (acc, r) => {
+                            (acc[r.emoji] ||= []).push(r.userId);
+                            return acc;
+                          },
+                          {},
+                        ),
+                      ).map(([emoji, ids]) => {
+                        const mine = ids.includes(user.id);
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              react(m, emoji);
+                            }}
+                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[11px] leading-none transition-colors cursor-pointer ${
+                              mine
+                                ? "bg-accent/20 border-accent/50"
+                                : "bg-white/5 border-white/10 hover:border-white/25"
+                            }`}
+                          >
+                            <span>{emoji}</span>
+                            {ids.length > 1 && (
+                              <span className="text-[9px] font-black text-gray-400">
+                                {ids.length}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <p
                     className={`text-[9px] font-bold text-gray-600 mt-1 flex items-center gap-1 ${
                       own ? "justify-end mr-2" : "ml-3"
@@ -699,7 +1016,9 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                       e.stopPropagation();
                       setMenuFor(menuFor === m._id ? null : m._id);
                     }}
-                    className={`absolute top-1 ${own ? "-left-8" : "-right-8"} p-1.5 rounded-lg text-gray-600 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all`}
+                    aria-label="Message actions"
+                    aria-expanded={menuFor === m._id}
+                    className={`absolute top-1 ${own ? "-left-8" : "-right-8"} p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all`}
                   >
                     <MoreVertical size={14} />
                   </button>
@@ -708,9 +1027,78 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
                       onClick={(e) => e.stopPropagation()}
                       className={`absolute top-8 ${own ? "right-full mr-2" : "left-full ml-2"} z-20 w-48 rounded-2xl bg-[#12121c] border border-white/10 shadow-2xl overflow-hidden`}
                     >
+                      {/* Reaction row first — it is the most-used action and
+                          wants a tap, not a menu item. */}
+                      <div className="flex items-center justify-between px-2.5 py-2 border-b border-white/8">
+                        {QUICK_REACTIONS.map((emoji) => {
+                          const mine = (m.reactions || []).some(
+                            (r) => r.userId === user.id && r.emoji === emoji,
+                          );
+                          return (
+                            <button
+                              key={emoji}
+                              onClick={() => react(m, emoji)}
+                              className={`size-7 rounded-full text-base leading-none flex items-center justify-center transition-transform hover:scale-125 cursor-pointer ${
+                                mine ? "bg-accent/25" : ""
+                              }`}
+                            >
+                              {emoji}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setMenuFor(null);
+                          setReplyTo(m);
+                        }}
+                        className="w-full text-left px-4 py-3 text-xs font-bold text-gray-300 hover:bg-white/5 flex items-center gap-2.5"
+                      >
+                        <Reply size={13} /> Reply
+                      </button>
+
+                      {canEdit && (
+                        <button
+                          onClick={() => {
+                            setMenuFor(null);
+                            setEditing({ id: m._id, text: m.text });
+                          }}
+                          className="w-full text-left px-4 py-3 text-xs font-bold text-gray-300 hover:bg-white/5 flex items-center gap-2.5 border-t border-white/5"
+                        >
+                          <Pencil size={13} /> Edit
+                        </button>
+                      )}
+
+                      {m.type === "text" && !!m.text?.trim() && (
+                        <button
+                          onClick={() => {
+                            setMenuFor(null);
+                            navigator.clipboard
+                              ?.writeText(m.text)
+                              .then(() => notify.success("Copied"))
+                              .catch(() => {});
+                          }}
+                          className="w-full text-left px-4 py-3 text-xs font-bold text-gray-300 hover:bg-white/5 flex items-center gap-2.5 border-t border-white/5"
+                        >
+                          <Copy size={13} /> Copy text
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setMenuFor(null);
+                          setSelecting(true);
+                          setSelected([m._id]);
+                        }}
+                        className="w-full text-left px-4 py-3 text-xs font-bold text-gray-300 hover:bg-white/5 flex items-center gap-2.5 border-t border-white/5"
+                      >
+                        <ListChecks size={13} /> Select messages
+                      </button>
+
                       <button
                         onClick={() => { setMenuFor(null); setConfirmDelete({ id: m._id, mode: "me" }); }}
-                        className="w-full text-left px-4 py-3 text-xs font-bold text-gray-300 hover:bg-white/5 flex items-center gap-2.5"
+                        className="w-full text-left px-4 py-3 text-xs font-bold text-gray-300 hover:bg-white/5 flex items-center gap-2.5 border-t border-white/5"
                       >
                         <Trash2 size={13} /> Delete for me
                       </button>
@@ -835,6 +1223,28 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
             </div>
           </div>
         )}
+        {/* What this message will quote. Shown here, above the box, because
+            that is where it appears once sent. */}
+        {replyTo && (
+          <div className="mb-3 flex items-start gap-3 rounded-2xl border-l-2 border-accent bg-accent/8 px-3.5 py-2.5">
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-accent">
+                Replying to {replyTo.senderName || "message"}
+              </p>
+              <p className="text-[11px] text-gray-400 font-medium truncate mt-0.5">
+                {previewOf(replyTo)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyTo(null)}
+              className="p-1 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        )}
+
         {recording ? (
           <div className="flex items-center gap-4 px-2">
             <div className="flex items-center gap-3 flex-1">
@@ -1000,6 +1410,26 @@ export default function ChatThread({ conversationId, className }: ChatThreadProp
         isLoading={deleting}
         onConfirm={doDelete}
         onClose={() => setConfirmDelete(null)}
+        type="danger"
+      />
+
+      <ConfirmationModal
+        isOpen={!!confirmBulk}
+        title={
+          confirmBulk === "everyone"
+            ? `Delete ${selected.length} for everyone`
+            : `Delete ${selected.length} for me`
+        }
+        message={
+          confirmBulk === "everyone"
+            ? "These messages will be permanently deleted for BOTH sides, along with any attached files. Anything that isn't yours to delete will be skipped. This cannot be undone."
+            : "These messages will be hidden from your view only. The other side will still see them."
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        isLoading={deleting}
+        onConfirm={bulkDelete}
+        onClose={() => setConfirmBulk(null)}
         type="danger"
       />
 

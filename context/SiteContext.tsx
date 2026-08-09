@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   ReactNode,
@@ -61,6 +62,16 @@ interface SiteContextType {
   styles: StyleMap;
   /** Stored style + any unsaved edit, ready to spread into `style={}`. */
   getStyle: (key: string) => CSSProperties | undefined;
+  /**
+   * Every key that has a style, saved OR still unsaved.
+   *
+   * `styles` alone is not enough for anything that has to ENUMERATE keys.
+   * A hover rule lives in a `key::hover` entry that only exists in the
+   * pending map until the owner saves, so a stylesheet built from `styles`
+   * omitted it entirely — which is why a hover effect did nothing at all
+   * until after a save and a reload.
+   */
+  styleKeys: string[];
 
   links: LinkMap;
   /** Stored link + any unsaved edit for this element. */
@@ -222,6 +233,23 @@ export function SiteProvider({
       return { ...(saved || {}), ...(pending || {}) };
     },
     // contentVersion forces a re-read after live style edits
+    [styles, contentVersion],
+  );
+
+  /**
+   * Saved keys plus unsaved ones, deduplicated.
+   *
+   * Anything that builds a stylesheet has to walk the keys, and an unsaved
+   * `::hover` key exists only in the pending ref — so building from `styles`
+   * alone silently dropped every hover rule the owner had just written.
+   */
+  const styleKeys = useMemo(
+    () =>
+      Array.from(
+        new Set([...Object.keys(styles), ...Object.keys(pendingStyles.current)]),
+      ),
+    // contentVersion is what changes when a pending key is added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [styles, contentVersion],
   );
 
@@ -503,6 +531,7 @@ export function SiteProvider({
         getText,
         styles,
         getStyle,
+        styleKeys,
         links,
         getLink,
         updateLink,

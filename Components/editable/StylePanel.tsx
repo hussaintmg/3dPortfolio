@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -33,6 +40,12 @@ import {
 import { useSite } from "@/context/SiteContext";
 import { ToggleTrack } from "@/Components/ui/Toggle";
 import { cn } from "@/lib/cn";
+import {
+  FONT_PRESETS,
+  GOOGLE_FONTS,
+  googleFontStack,
+  googleFamilyOf,
+} from "@/lib/fonts";
 
 const PANEL_W = 340;
 const PANEL_H = 450;
@@ -218,15 +231,19 @@ export default function StylePanel() {
   } = useSite();
   const [tab, setTab] = useState<TabId>("text");
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const [mounted, setMounted] = useState(false);
+  // Portals need a browser DOM. useSyncExternalStore provides an explicit
+  // server snapshot without an effect-driven extra render.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const panelRef = useRef<HTMLDivElement>(null);
   /** Set once the owner drags the panel; suppresses auto-placement. */
   const movedRef = useRef(false);
   const dragRef = useRef<{ x: number; y: number; top: number; left: number } | null>(
     null,
   );
-
-  useEffect(() => setMounted(true), []);
 
   // A new selection earns a fresh auto-placement
   useEffect(() => {
@@ -312,10 +329,7 @@ export default function StylePanel() {
 
   // Place the panel where it fits: above the element, else below, clamped.
   useLayoutEffect(() => {
-    if (!selection?.el) {
-      setPos(null);
-      return;
-    }
+    if (!selection?.el) return;
     // A panel the owner dragged stays where they put it until they pick
     // something else — auto-placing over their choice is maddening.
     if (movedRef.current) return;
@@ -367,13 +381,23 @@ export default function StylePanel() {
    */
   const hoverKey = `${selection.key}::hover`;
   const hoverStyle = (getStyle(hoverKey) || {}) as Record<string, string>;
+
+  /**
+   * The transition belongs on the ELEMENT, not on its `:hover` rule.
+   *
+   * Declared only inside `:hover`, it governs the way in and then stops
+   * existing the moment the pointer leaves — so the effect eased on and
+   * snapped off, which is what "it works once and then resets" looks like.
+   * Setting it on the base as well makes the return journey match.
+   */
   const setHover = (patch: Record<string, string>) => {
-    // A transition has to exist for the hover to ease rather than snap
-    const withEase =
-      hoverStyle.transitionDuration || patch.transitionDuration
-        ? patch
-        : { ...patch, transitionDuration: "200ms" };
-    updateStyle(hoverKey, withEase as any);
+    const ms = hoverStyle.transitionDuration || patch.transitionDuration || "200ms";
+    updateStyle(hoverKey, { ...patch, transitionDuration: ms } as any);
+    updateStyle(selection.key, {
+      transitionProperty: "all",
+      transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+      transitionDuration: ms,
+    } as any);
   };
 
   const panel = (
@@ -483,6 +507,76 @@ export default function StylePanel() {
                   ))}
                 </select>
               </Row>
+              {/*
+                Font family. Bundled faces cost nothing; a Google family is
+                downloaded on demand by SelectorStyles, so picking one here
+                actually changes the rendering rather than quietly falling
+                back to the theme default.
+              */}
+              <Row label="Font">
+                <select
+                  value={
+                    FONT_PRESETS.some((f) => f.value === (current.fontFamily || ""))
+                      ? (current.fontFamily as string) || ""
+                      : googleFamilyOf(current.fontFamily as string)
+                        ? googleFontStack(googleFamilyOf(current.fontFamily as string)!)
+                        : "__custom"
+                  }
+                  onChange={(e) =>
+                    e.target.value !== "__custom" &&
+                    set({ fontFamily: e.target.value })
+                  }
+                  className="max-w-[180px] bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white outline-none focus:border-accent cursor-pointer"
+                >
+                  {FONT_PRESETS.map((f) => (
+                    <option key={f.label} value={f.value} className="bg-[#111827]">
+                      {f.label}
+                    </option>
+                  ))}
+                  <optgroup label="Google Fonts">
+                    {GOOGLE_FONTS.map((f) => (
+                      <option
+                        key={f}
+                        value={googleFontStack(f)}
+                        className="bg-[#111827]"
+                      >
+                        {f}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <option value="__custom" className="bg-[#111827]">
+                    Custom…
+                  </option>
+                </select>
+              </Row>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Any Google font, e.g. Rubik"
+                  defaultValue={googleFamilyOf(current.fontFamily as string) || ""}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    const v = (e.target as HTMLInputElement).value.trim();
+                    set({ fontFamily: v ? googleFontStack(v) : "" });
+                  }}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    const currentFamily =
+                      googleFamilyOf(current.fontFamily as string) || "";
+                    if (v !== currentFamily) {
+                      set({ fontFamily: v ? googleFontStack(v) : "" });
+                    }
+                  }}
+                  className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-white outline-none focus:border-accent placeholder:text-gray-600"
+                />
+                <span
+                  className="text-[9px] font-black uppercase tracking-widest text-gray-600 shrink-0"
+                  title="Typed names are fetched from Google Fonts"
+                >
+                  ↵
+                </span>
+              </div>
               <Row label="Align">
                 {[
                   { v: "left", icon: <AlignLeft size={13} /> },

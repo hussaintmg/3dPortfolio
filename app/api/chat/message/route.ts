@@ -54,23 +54,26 @@ export async function PATCH(req: Request) {
 
     switch (action) {
       case "react": {
-        if (!emoji) {
+        const reaction = String(emoji || "").trim();
+        // Keep the payload to one normal emoji/grapheme sequence. This also
+        // prevents a forged request from storing an arbitrarily large string.
+        if (!reaction || reaction.length > 16) {
           return NextResponse.json(
-            { success: false, message: "Which emoji?" },
+            { success: false, message: "Choose one valid emoji" },
             { status: 400 },
           );
         }
         const mine = message.reactions.find((r: any) => r.userId === user.id);
-        if (mine && mine.emoji === emoji) {
+        if (mine && mine.emoji === reaction) {
           // Tapping the same one again takes it back
           message.reactions = message.reactions.filter(
             (r: any) => r.userId !== user.id,
           );
         } else if (mine) {
-          mine.emoji = emoji;
+          mine.emoji = reaction;
           mine.at = new Date();
         } else {
-          message.reactions.push({ userId: user.id, emoji, at: new Date() });
+          message.reactions.push({ userId: user.id, emoji: reaction, at: new Date() });
         }
         break;
       }

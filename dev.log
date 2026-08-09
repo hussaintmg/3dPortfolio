@@ -1,0 +1,47 @@
+﻿
+> portfolio@0.1.0 dev
+> next dev
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.100.44:3000
+- Environments: .env.local
+
+✓ Starting...
+✓ Ready in 4.3s
+ GET /api/auth/me 401 in 1541ms (compile: 1459ms, render: 82ms)
+ GET /api/site-status 200 in 2.2s (compile: 147ms, render: 2.0s)
+○ Compiling / ...
+ GET /api/auth/me 401 in 132ms (compile: 39ms, render: 93ms)
+ GET /api/site-status 200 in 163ms (compile: 20ms, render: 143ms)
+ GET / 200 in 2.5s (compile: 139ms, proxy.ts: 486ms, render: 1829ms)
+ GET /api/auth/me 401 in 18ms (compile: 6ms, render: 12ms)
+ GET /api/site-status 200 in 103ms (compile: 5ms, render: 98ms)
+ GET / 200 in 1024ms (compile: 30ms, proxy.ts: 165ms, render: 828ms)
+✓ Finished writing to filesystem cache in 14.2s
+ GET /api/auth/me 401 in 284ms (compile: 152ms, render: 132ms)
+ GET /api/site-status 200 in 615ms (compile: 20ms, render: 595ms)
+ GET / 200 in 9.2s (compile: 120ms, proxy.ts: 1669ms, render: 7.5s)
+○ Compiling /api/chat ...
+node.exe : (node:29108) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors 
+that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:29108) [D...ulnerabilities.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ POST /api/realtime-emit 200 in 103ms (compile: 71ms, render: 32ms)
+ POST /api/chat 200 in 9.6s (compile: 3.6s, render: 6.0s)
+ POST /api/chat 200 in 113ms (compile: 5ms, render: 108ms)
+ PATCH /api/chat/message 200 in 713ms (compile: 497ms, render: 217ms)
+ PATCH /api/chat/message 200 in 154ms (compile: 5ms, render: 149ms)
+ PATCH /api/chat/message 200 in 158ms (compile: 4ms, render: 154ms)
+ PATCH /api/chat/message 200 in 159ms (compile: 4ms, render: 155ms)
+ PATCH /api/chat/message 200 in 160ms (compile: 4ms, render: 156ms)
+ PATCH /api/chat/message 403 in 79ms (compile: 4ms, render: 75ms)
+ PATCH /api/chat/message 400 in 84ms (compile: 4ms, render: 80ms)
+ PATCH /api/chat/message 404 in 82ms (compile: 3ms, render: 78ms)
+ POST /api/chat/message 200 in 235ms (compile: 4ms, render: 231ms)
+ GET /api/chat?conversationId=6a77a8880e5e1250ee0072fd 200 in 99ms (compile: 4ms, render: 96ms)

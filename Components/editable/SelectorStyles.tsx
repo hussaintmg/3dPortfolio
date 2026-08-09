@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useSite } from "@/context/SiteContext";
 import { cssText } from "@/lib/elementPath";
+import { googleFamilyOf, googleFontsHref } from "@/lib/fonts";
 
 /**
  * Paints the owner's saved styling for freely-picked elements.
@@ -13,14 +14,24 @@ import { cssText } from "@/lib/elementPath";
  * during SSR is what keeps the styling from flashing in after hydration.
  */
 export default function SelectorStyles() {
-  const { styles, getStyle, getLink, links, contentVersion } = useSite();
+  const { styleKeys, getStyle, getLink, links, contentVersion } = useSite();
 
+  /**
+   * Base rules first, hover rules last.
+   *
+   * A picked element's base and hover rules have identical specificity and
+   * both carry `!important`, so source order is the only tie-break. The keys
+   * used to arrive in whatever order the object happened to hold them, which
+   * meant a hover rule could be emitted BEFORE its own base rule and lose to
+   * it — hover working or not working depending on nothing the owner could
+   * see or control.
+   */
   const emittedKeys = useMemo(
     () =>
-      Object.keys(styles).filter(
-        (k) => k.startsWith("sel:") || k.endsWith("::hover"),
-      ),
-    [styles],
+      styleKeys
+        .filter((k) => k.startsWith("sel:") || k.endsWith("::hover"))
+        .sort((a, b) => Number(a.endsWith("::hover")) - Number(b.endsWith("::hover"))),
+    [styleKeys],
   );
 
   /**
@@ -55,6 +66,26 @@ export default function SelectorStyles() {
     return rules.join("\n");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emittedKeys, contentVersion, getStyle]);
+
+  /**
+   * Download whatever fonts the owner actually chose.
+   *
+   * A font picker that only writes `font-family` is a picker that silently
+   * does nothing: the browser falls back to the default for any family the
+   * page never loaded. Every key is scanned — not just selector keys, because
+   * a component's font is set on its own key and rendered inline.
+   */
+  const fontsHref = useMemo(() => {
+    const families: string[] = [];
+    for (const key of styleKeys) {
+      const family = googleFamilyOf(
+        (getStyle(key) as Record<string, string> | undefined)?.fontFamily,
+      );
+      if (family) families.push(family);
+    }
+    return googleFontsHref(families);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [styleKeys, contentVersion, getStyle]);
 
   /**
    * Links can't be expressed in CSS, so selector-keyed link overrides are
@@ -114,6 +145,16 @@ export default function SelectorStyles() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [links, contentVersion]);
 
-  if (!sheet) return null;
-  return <style data-selector-styles dangerouslySetInnerHTML={{ __html: sheet }} />;
+  if (!sheet && !fontsHref) return null;
+
+  return (
+    <>
+      {fontsHref && (
+        <link rel="stylesheet" href={fontsHref} data-owner-fonts />
+      )}
+      {sheet && (
+        <style data-selector-styles dangerouslySetInnerHTML={{ __html: sheet }} />
+      )}
+    </>
+  );
 }
