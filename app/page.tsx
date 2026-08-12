@@ -617,7 +617,12 @@ export default function HomePage() {
                       key={service._id}
                       k="home.services.card"
                       label="Service card"
-                      className="service-card group relative rounded-4xl border border-white/8 bg-white/2 backdrop-blur-xl p-8 overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:border-indigo-500/30 hover:shadow-[0_20px_40px_-15px_rgba(99,102,241,0.25)]"
+                      /* Backdrop blur only from `md` up. A backdrop-filter
+                         makes the browser re-read what is behind the element
+                         on every frame it moves, and eleven full-width cards
+                         doing that is what a phone feels as scroll lag — for
+                         a blur of an almost-flat background nobody can see. */
+                      className="service-card group relative rounded-4xl border border-white/8 bg-white/2 md:backdrop-blur-xl p-8 overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:border-indigo-500/30 hover:shadow-[0_20px_40px_-15px_rgba(99,102,241,0.25)]"
                     >
                       <div className="absolute inset-0 bg-linear-to-tl from-indigo-500/6 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
                       <div className="relative z-10 space-y-5">
@@ -757,7 +762,7 @@ export default function HomePage() {
               return (
                 <div
                   key={idx}
-                  className="skill-card group relative bg-white/2 backdrop-blur-xl border border-white/8 p-8 md:p-10 rounded-4xl transition-all duration-500 hover:-translate-y-2 hover:border-indigo-500/30 hover:shadow-[0_20px_40px_-15px_rgba(99,102,241,0.2)] overflow-hidden"
+                  className="skill-card group relative bg-white/2 md:backdrop-blur-xl border border-white/8 p-8 md:p-10 rounded-4xl transition-all duration-500 hover:-translate-y-2 hover:border-indigo-500/30 hover:shadow-[0_20px_40px_-15px_rgba(99,102,241,0.2)] overflow-hidden"
                   style={{
                     marginLeft: idx % 2 !== 0 ? "auto" : "0",
                     marginRight: idx % 2 === 0 ? "auto" : "0",
@@ -958,7 +963,7 @@ export default function HomePage() {
                       key={pkg._id}
                       k="home.pricing.card"
                       label="Pricing card"
-                      className={`pkg-card group relative rounded-4xl border bg-white/2 backdrop-blur-xl p-8 flex flex-col gap-6 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_25px_50px_-15px_rgba(99,102,241,0.25)] ${
+                      className={`pkg-card group relative rounded-4xl border bg-white/2 md:backdrop-blur-xl p-8 flex flex-col gap-6 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_25px_50px_-15px_rgba(99,102,241,0.25)] ${
                         pkg.badge
                           ? "border-indigo-500/30 ring-1 ring-indigo-500/20"
                           : "border-white/8 hover:border-indigo-500/30"

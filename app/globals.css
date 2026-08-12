@@ -374,3 +374,49 @@ body.editor-picking [data-editor-ui] a {
 @media (prefers-reduced-motion: reduce) {
   [data-loop] { animation: none !important; }
 }
+
+/*
+ * A full-screen block that is safe to pin on a phone.
+ *
+ * `100vh` on mobile is the height the page has once the URL bar has scrolled
+ * away — it is TALLER than what you can actually see while the bar is up. A
+ * pinned section sized that way pushes its vertically-centred contents below
+ * the fold, which is what cut the bottom off the solutions cards. `svh` is the
+ * height with the bar showing, so nothing is ever hidden behind it.
+ *
+ * Written as two declarations in one rule rather than as two Tailwind classes,
+ * because two classes leave the winner up to whichever utility happens to be
+ * emitted last. (The minifier drops the `vh` line when every browser it
+ * targets understands `svh`, which is the point of writing it this way.)
+ */
+.h-screen-safe {
+  height: 100vh;
+  height: 100svh;
+}
+
+/*
+ * The ready-made solutions card deck.
+ *
+ * Height is capped by the viewport AND by the viewport's WIDTH, because the
+ * cards are 3:4 — an unclamped height makes a tall phone render a card wider
+ * than the screen. `vh` is declared first at each step so a browser without
+ * `svh` gets a sane height rather than `auto`.
+ */
+.solutions-deck {
+  height: min(54vh, 104vw);
+  height: min(54svh, 104vw);
+}
+
+@media (min-width: 640px) {
+  .solutions-deck {
+    height: min(58vh, 90vw);
+    height: min(58svh, 90vw);
+  }
+}
+
+@media (min-width: 1024px) {
+  .solutions-deck {
+    height: min(62vh, 50vw);
+    height: min(62svh, 50vw);
+  }
+}

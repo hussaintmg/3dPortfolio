@@ -276,7 +276,14 @@ export default async function RootLayout({
     : null;
 
   return (
-    <html lang="en" className="scroll-smooth custom-scrollbar">
+    /*
+      No `scroll-smooth` here. Lenis drives scrolling from its own rAF loop,
+      and CSS smooth scrolling ran a second, competing animation on the same
+      scroll position — the two fought on every anchor jump and on any
+      programmatic scroll, which is what made the pinned sections stutter.
+      LenisProvider now handles in-page anchors instead.
+    */
+    <html lang="en" className="custom-scrollbar">
       <head>
         {/* Start the 3D environment download in parallel with everything else
             so the sphere's reflections are ready almost immediately. */}
