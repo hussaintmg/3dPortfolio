@@ -1,28 +1,26 @@
 /**
  * One place for "how big is too big", shared by the browser and the server.
  *
- * There are three separate ceilings and they are easy to confuse:
+ * There are two separate ceilings:
  *
  * 1. **Vercel's request body limit (~4.5MB).** Anything posted to
  *    `/api/upload` passes *through* a serverless function, so the platform
  *    rejects the request before our code ever runs. This is why sending a
  *    video from chat failed in production while a screenshot worked — the
  *    video was simply bigger than the pipe.
- * 2. **The Supabase bucket limit (50MB).** Set on the `SavedFiles` bucket
- *    itself; the storage API answers with a 413 `EntityTooLarge`. This is the
- *    real ceiling on the free plan and it cannot be raised without upgrading.
- * 3. **Total free-plan storage (1GB).** Not enforced per file — it just runs
- *    out. Hence the deliberately modest video cap below.
+ * 2. **The Vercel Blob storage limit (50MB).** Set on client uploads and server
+ *    direct uploads to keep within store quotas.
  *
- * The fix for (1) is not a bigger limit, it is not going through the function
- * at all: the browser uploads straight to Supabase using a short-lived signed
- * URL that the server mints. See `lib/uploadClient.ts`.
+ * The fix for (1) is not going through the function at all: the browser
+ * uploads straight to Vercel Blob using a short-lived client upload token
+ * that the server mints. See `lib/uploadClient.ts`.
  */
 
-export const STORAGE_BUCKET = "SavedFiles";
+export const STORAGE_BUCKET = "vercel-blob";
 
-/** The bucket's own `file_size_limit`. Nothing larger can ever be stored. */
+/** The store's maximum file size. Nothing larger can be stored. */
 export const BUCKET_MAX_BYTES = 50 * 1024 * 1024;
+export const BLOB_MAX_BYTES = BUCKET_MAX_BYTES;
 
 /**
  * The largest body we are willing to push through a serverless function.

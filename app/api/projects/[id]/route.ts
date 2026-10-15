@@ -3,7 +3,7 @@ import dbConnect from "@/lib/mongoose";
 import Project from "@/models/Project";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
-import { deleteFileFromSupabase } from "@/lib/supabase";
+import { deleteBlob } from "@/lib/blob";
 import { pingIndexNow } from "@/lib/indexnow";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -28,7 +28,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       body.media?.storageKey &&
       oldProject.media.storageKey !== body.media.storageKey
     ) {
-      await deleteFileFromSupabase(oldProject.media.storageKey);
+      await deleteBlob(oldProject.media.storageKey);
     }
 
     const updated = await Project.findByIdAndUpdate(id, body, { returnDocument: "after" });
@@ -56,7 +56,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     const p = await Project.findById(id);
     if (p?.media?.storageKey) {
-      await deleteFileFromSupabase(p.media.storageKey);
+      await deleteBlob(p.media.storageKey);
     }
 
     await Project.findByIdAndDelete(id);

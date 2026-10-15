@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import dbConnect from "@/lib/mongoose";
 import ChatMessage from "@/models/ChatMessage";
 import { verifyToken } from "@/lib/auth";
-import { deleteFileFromSupabase } from "@/lib/supabase";
+import { deleteBlob } from "@/lib/blob";
 
 async function requireUser() {
   const store = await cookies();
@@ -179,7 +179,7 @@ export async function POST(req: Request) {
           continue;
         }
         if (m.attachment?.storageKey) {
-          await deleteFileFromSupabase(m.attachment.storageKey).catch(() => {});
+          await deleteBlob(m.attachment.storageKey).catch(() => {});
         }
         await m.deleteOne();
       } else {

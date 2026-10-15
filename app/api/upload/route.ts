@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { uploadFileToSupabase } from "@/lib/supabase";
+import { uploadFileToBlob } from "@/lib/blob";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { guardRate } from "@/lib/rateLimit";
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const uploadRes = await uploadFileToSupabase(file, folder);
+    const uploadRes = await uploadFileToBlob(file, folder);
     if (!uploadRes.success) {
       return NextResponse.json(
         { success: false, error: uploadRes.error },

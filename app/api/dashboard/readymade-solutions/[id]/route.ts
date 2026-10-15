@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongoose";
 import ReadymadeSolution from "@/models/ReadymadeSolution";
-import { deleteFileFromSupabase } from "@/lib/supabase";
+import { deleteBlob } from "@/lib/blob";
 
 export async function PATCH(
   req: Request,
@@ -22,7 +22,7 @@ export async function PATCH(
       updateData.media?.storageKey &&
       oldSolution.media.storageKey !== updateData.media.storageKey
     ) {
-      await deleteFileFromSupabase(oldSolution.media.storageKey);
+      await deleteBlob(oldSolution.media.storageKey);
     }
 
     // A cleared price field arrives as "" — store null so the solution drops
@@ -69,9 +69,9 @@ export async function DELETE(
         { status: 404 },
       );
 
-    // Purge visual assets from storage bucket 'SavedFiles'
+    // Purge visual assets from storage
     if (solution.media?.storageKey) {
-      await deleteFileFromSupabase(solution.media.storageKey);
+      await deleteBlob(solution.media.storageKey);
     }
 
     await ReadymadeSolution.findByIdAndDelete(id);

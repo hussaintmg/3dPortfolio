@@ -344,6 +344,7 @@ export default function SiteSettingPage() {
               onChange={set}
             />
 
+
             {/* Favicon */}
             <section className="rounded-3xl border border-white/10 bg-card p-5 sm:p-8 space-y-6">
               <h2 className="text-xs font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">

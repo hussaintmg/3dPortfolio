@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createSignedUpload, resolveContentType } from "@/lib/supabase";
+import {
+  createClientUploadToken,
+  resolveContentType,
+  getBlobToken,
+} from "@/lib/blob";
 import { verifyToken } from "@/lib/auth";
 import { guardRate } from "@/lib/rateLimit";
 import {
@@ -9,13 +13,13 @@ import {
   formatBytes,
   safeObjectName,
 } from "@/lib/uploadLimits";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
 /**
- * Authorises a browser-direct upload.
+ * Authorises a browser-direct upload to Vercel Blob.
  *
- * Nothing but JSON crosses this route — the file itself never touches a
- * serverless function, which is the entire point. See the note on
- * `createSignedUpload` for why.
+ * Nothing but JSON crosses this route — the file bytes travel directly
+ * from the browser to Vercel Blob storage, bypassing serverless body limits.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -42,6 +46,25 @@ export async function POST(request: NextRequest) {
     const isStaff = user.role === "admin" || user.role === "owner";
 
     const body = await request.json().catch(() => null);
+
+    // If request comes from @vercel/blob/client's standard handleUpload
+    if (body?.type === "blob.generate-client-token") {
+      const blobToken = await getBlobToken();
+      const jsonResponse = await handleUpload({
+        body: body as HandleUploadBody,
+        request,
+        token: blobToken,
+        onBeforeGenerateToken: async () => {
+          return {
+            maximumSizeInBytes: BUCKET_MAX_BYTES,
+            tokenPayload: JSON.stringify({ userId: user.id, role: user.role }),
+          };
+        },
+        onUploadCompleted: async () => {},
+      });
+      return NextResponse.json(jsonResponse);
+    }
+
     if (!body?.name) {
       return NextResponse.json(
         { success: false, error: "No file described" },
@@ -56,8 +79,7 @@ export async function POST(request: NextRequest) {
     // Clients may only ever write into chat/, same rule as /api/upload
     const folder = isStaff ? String(body.folder || "uploads") : "chat";
 
-    // Per-kind caps first (they carry the friendlier wording), then the hard
-    // bucket ceiling that Supabase would reject anyway.
+    // Per-kind caps first, then store ceiling
     const kindError = uploadSizeError(size, declaredType);
     if (kindError) {
       return NextResponse.json({ success: false, error: kindError }, { status: 413 });
@@ -73,7 +95,10 @@ export async function POST(request: NextRequest) {
     }
 
     const objectName = safeObjectName(name);
-    const signed = await createSignedUpload(folder, objectName);
+    const pathname = `${folder}/${objectName}`;
+    const contentType = resolveContentType(objectName, declaredType);
+
+    const signed = await createClientUploadToken(pathname, BUCKET_MAX_BYTES);
 
     if (!signed.success) {
       return NextResponse.json(
@@ -84,12 +109,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      filePath: signed.filePath,
-      fileName: signed.fileName,
-      signedUrl: signed.signedUrl,
-      token: signed.token,
-      publicUrl: signed.publicUrl,
-      contentType: resolveContentType(objectName, declaredType),
+      clientToken: signed.clientToken,
+      pathname,
+      fileName: objectName,
+      contentType,
     });
   } catch (error: any) {
     console.error("Signed upload error:", error);

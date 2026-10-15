@@ -9,26 +9,29 @@ import crypto from "crypto";
  * auth tag, so tampering is detected rather than silently decrypting.
  */
 
-const KEY_SOURCE =
-  process.env.SECRETS_ENCRYPTION_KEY || process.env.JWT_SECRET || "";
-
-if (!KEY_SOURCE && process.env.NODE_ENV === "production") {
-  // Fail loudly at import time rather than writing recoverable "encrypted" data
-  throw new Error(
-    "SECRETS_ENCRYPTION_KEY (or JWT_SECRET) must be set to store provider keys",
-  );
+function getKey() {
+  const source =
+    process.env.SECRETS_ENCRYPTION_KEY || process.env.JWT_SECRET || "";
+  if (
+    !source &&
+    process.env.NODE_ENV === "production" &&
+    process.env.NEXT_PHASE !== "phase-production-build"
+  ) {
+    throw new Error(
+      "SECRETS_ENCRYPTION_KEY (or JWT_SECRET) must be set to store provider keys",
+    );
+  }
+  return crypto
+    .createHash("sha256")
+    .update(source || "development-only-fallback")
+    .digest();
 }
-
-/** A stable 32-byte key derived from whatever secret the deploy provides. */
-const key = crypto
-  .createHash("sha256")
-  .update(KEY_SOURCE || "development-only-fallback")
-  .digest();
 
 const PREFIX = "v1";
 
 export function encryptSecret(plain: string): string {
   if (!plain) return "";
+  const key = getKey();
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   const enc = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
@@ -45,6 +48,7 @@ export function decryptSecret(stored: string): string {
   if (parts.length !== 4 || parts[0] !== PREFIX) return stored;
 
   try {
+    const key = getKey();
     const [, iv, tag, payload] = parts;
     const decipher = crypto.createDecipheriv(
       "aes-256-gcm",

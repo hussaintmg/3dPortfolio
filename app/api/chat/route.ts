@@ -6,7 +6,7 @@ import { raiseNotification } from "@/lib/notifications";
 import { maybeAutoReply } from "@/lib/ai/autoReply";
 import User from "@/models/User";
 import { verifyToken } from "@/lib/auth";
-import { deleteFileFromSupabase } from "@/lib/supabase";
+import { deleteBlob } from "@/lib/blob";
 import { guardRate } from "@/lib/rateLimit";
 
 async function requireUser() {
@@ -274,7 +274,7 @@ export async function DELETE(req: Request) {
           { status: 403 },
         );
       if (message.attachment?.storageKey) {
-        await deleteFileFromSupabase(message.attachment.storageKey);
+        await deleteBlob(message.attachment.storageKey);
       }
       await ChatMessage.findByIdAndDelete(id);
       return NextResponse.json({ success: true, message: "Deleted for everyone" });

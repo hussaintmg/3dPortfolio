@@ -13,7 +13,7 @@ const ReadymadeSolutionSchema = new mongoose.Schema({
     name: { type: String },
     size: { type: Number },
     type: { type: String },
-    storageKey: { type: String }, // Public key or storage path in Supabase
+    storageKey: { type: String }, // Storage path or blob URL
   },
   /**
    * Optional commercial details. A solution with no price is portfolio-only

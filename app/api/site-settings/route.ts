@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import dbConnect from "@/lib/mongoose";
 import SiteSettings from "@/models/SiteSettings";
 import { verifyToken } from "@/lib/auth";
-import { deleteFileFromSupabase } from "@/lib/supabase";
+import { deleteBlob } from "@/lib/blob";
 
 export async function GET() {
   try {
@@ -88,14 +88,14 @@ export async function PUT(req: Request) {
       faviconStorageKey &&
       existing.faviconStorageKey !== faviconStorageKey
     ) {
-      await deleteFileFromSupabase(existing.faviconStorageKey);
+      await deleteBlob(existing.faviconStorageKey);
     }
     if (
       existing?.appIconStorageKey &&
       appIconStorageKey &&
       existing.appIconStorageKey !== appIconStorageKey
     ) {
-      await deleteFileFromSupabase(existing.appIconStorageKey);
+      await deleteBlob(existing.appIconStorageKey);
     }
 
     const settings = await SiteSettings.findOneAndUpdate(

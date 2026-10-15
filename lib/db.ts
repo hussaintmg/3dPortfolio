@@ -9,9 +9,9 @@ if (process.env.MONGODB_DNS_FIX === "true") {
   } catch {}
 }
 
-const MONGODB_URI = process.env.MONGODB_URI as string;
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/portfolio";
 
-if (!MONGODB_URI) {
+if (!MONGODB_URI && process.env.NEXT_PHASE !== "phase-production-build") {
   throw new Error("Please define the MONGODB_URI environment variable inside .env.local");
 }
 

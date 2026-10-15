@@ -6,6 +6,7 @@ import {
   uploadSizeError,
   formatBytes,
 } from "@/lib/uploadLimits";
+import { put as clientPut } from "@vercel/blob/client";
 
 export interface UploadOutcome {
   success: boolean;
@@ -25,15 +26,14 @@ export interface UploadOptions {
 /**
  * Uploads a file and reports real progress.
  *
- * The bytes go **straight from the browser to Supabase** through a signed
- * URL. That is not an optimisation, it is the fix: routing them through
+ * The bytes go **straight from the browser to Vercel Blob** using a short-lived
+ * client token. That is not an optimisation, it is the fix: routing them through
  * `/api/upload` puts them inside a serverless request body, and Vercel caps
  * that at roughly 4.5MB, so every video larger than a few seconds was
  * rejected by the platform before our code saw it.
  *
- * `/api/upload` is kept as a fallback for the case where signing is
- * unavailable (a missing service key, say), but only for files small enough
- * to survive the trip — offering it for a 30MB video would just fail slowly.
+ * `/api/upload` is kept as a fallback for the case where client token generation
+ * is unavailable, but only for files small enough to survive the trip.
  */
 export async function uploadFile(
   file: File,
@@ -53,7 +53,7 @@ export async function uploadFile(
 
   onProgress?.(0);
 
-  // 1. Ask our server to authorise the write (JSON only — no file bytes).
+  // 1. Ask our server to authorise the write and generate a client upload token.
   let ticket: any = null;
   try {
     const res = await fetch("/api/upload/sign", {
@@ -69,8 +69,6 @@ export async function uploadFile(
     });
     ticket = await res.json().catch(() => null);
     if (!res.ok || !ticket?.success) {
-      // A refusal on size or auth is final — do not retry through the
-      // fallback, it would fail for the same reason with a worse message.
       if (res.status === 413 || res.status === 401 || res.status === 403) {
         return { success: false, error: ticket?.error || "Upload refused." };
       }
@@ -81,28 +79,39 @@ export async function uploadFile(
     ticket = null;
   }
 
-  if (ticket?.signedUrl) {
-    const put = await putWithProgress(
-      ticket.signedUrl,
-      file,
-      ticket.contentType || file.type || "application/octet-stream",
-      onProgress,
-      signal,
-    );
-    if (put.success) {
+  // 2. Direct upload to Vercel Blob with progress
+  if (ticket?.clientToken && ticket?.pathname) {
+    try {
+      const blob = await clientPut(ticket.pathname, file, {
+        access: "public",
+        token: ticket.clientToken,
+        contentType: ticket.contentType || file.type || "application/octet-stream",
+        abortSignal: signal,
+        onUploadProgress: ({ percentage }) => {
+          onProgress?.(Math.min(99, Math.round(percentage)));
+        },
+      });
+
       onProgress?.(100);
       return {
         success: true,
-        publicUrl: ticket.publicUrl,
-        filePath: ticket.filePath,
-        contentType: ticket.contentType,
+        publicUrl: blob.url,
+        filePath: blob.url,
+        contentType: blob.contentType || ticket.contentType,
       };
+    } catch (err: any) {
+      if (err?.name === "BlobRequestAbortedError" || err?.name === "AbortError") {
+        return { success: false, error: "Upload cancelled." };
+      }
+      console.warn("Direct Vercel Blob upload failed, attempting fallback:", err);
+      // If error is size or quota refusal, do not fallback
+      if (err?.name === "BlobFileTooLargeError" || err?.name === "BlobAccessError") {
+        return { success: false, error: err.message || "Upload refused by storage." };
+      }
     }
-    // Storage itself refused (size, bad token). Falling back cannot help.
-    if (put.fatal) return { success: false, error: put.error };
   }
 
-  // 2. Legacy path, small files only.
+  // 3. Fallback path, small files only.
   if (file.size > SERVERLESS_SAFE_BYTES) {
     return {
       success: false,
@@ -113,68 +122,6 @@ export async function uploadFile(
   return legacyUpload(file, folder, onProgress, signal);
 }
 
-/** XHR rather than fetch purely because fetch cannot report upload progress. */
-function putWithProgress(
-  url: string,
-  file: File,
-  contentType: string,
-  onProgress?: (p: number) => void,
-  signal?: AbortSignal,
-): Promise<{ success: boolean; error?: string; fatal?: boolean }> {
-  return new Promise((resolve) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url, true);
-    xhr.setRequestHeader("content-type", contentType);
-    // Never silently replace someone else's object; keys are timestamped anyway
-    xhr.setRequestHeader("x-upsert", "false");
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        // Hold at 99 until storage confirms — a full bar that then fails reads
-        // as a lie, and the last few percent are the server writing the object.
-        onProgress?.(Math.min(99, Math.round((e.loaded / e.total) * 100)));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) return resolve({ success: true });
-      if (xhr.status === 413) {
-        return resolve({
-          success: false,
-          fatal: true,
-          error: `Storage rejected this file: it is over the ${formatBytes(BUCKET_MAX_BYTES)} limit.`,
-        });
-      }
-      resolve({
-        success: false,
-        error: `Upload failed (${xhr.status}).`,
-      });
-    };
-
-    xhr.onerror = () =>
-      resolve({
-        success: false,
-        error: "Connection lost during the upload.",
-      });
-    xhr.ontimeout = () =>
-      resolve({ success: false, error: "The upload timed out." });
-
-    // A 50MB clip on a slow connection genuinely takes minutes
-    xhr.timeout = 15 * 60_000;
-
-    if (signal) {
-      if (signal.aborted) {
-        xhr.abort();
-        return resolve({ success: false, fatal: true, error: "Upload cancelled." });
-      }
-      signal.addEventListener("abort", () => xhr.abort(), { once: true });
-      xhr.onabort = () =>
-        resolve({ success: false, fatal: true, error: "Upload cancelled." });
-    }
-
-    xhr.send(file);
-  });
-}
 
 /** The original multipart route, still used for small files as a safety net. */
 async function legacyUpload(
